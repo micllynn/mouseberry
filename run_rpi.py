@@ -1,3 +1,3 @@
 import mouseberry as mb
 
-mb.send_video('169.254.214.248')
+mb.send_video('Michaels-MacBook-Pro-2.local')
