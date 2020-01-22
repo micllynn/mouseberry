@@ -1,1 +1,1 @@
-from .core import send_video
+from .core import Video
