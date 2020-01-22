@@ -1,3 +1,7 @@
 import mouseberry as mb
+import time
 
-mb.send_video('169.254.83.222')
+picam = mb.Video()
+picam.preview()
+time.sleep(5)
+picam.stop_rec()

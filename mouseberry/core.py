@@ -1,53 +1,46 @@
-"""
-"""
 import os, sys, io
-import socket
+import threading
 import struct
 import time
+import picamera
 
-#For RPi only
-try:
-    import picamera
-except:
-    pass
+class Video():
 
-def send_video(server_address):
-    # Connect a client socket to my_server:8000 (change my_server to the
-    # hostname of your server)
-    client_socket = socket.socket()
-    client_socket.connect((server_address, 800))
+    def __init__(self, res=(640, 480), framerate=30):
+        """
+        Creates an object to start a video stream on the local screen.
+        """
+        self.res = res
+        self.framerate = framerate
 
-    # Make a file-like object out of the connection
-    connection = client_socket.makefile('wb')
-    try:
-        with picamera.PiCamera() as camera:
-            camera.resolution = (640, 480)
-            # Start a preview and let the camera warm up for 2 seconds
-            camera.start_preview()
-            time.sleep(2)
+    def preview(self):
+        """
+        Display a video preview from the rPi
+        """
+        self.camera = picamera.PiCamera()
+        self.camera.resolution = self.res
+        self.camera.framerate = self.framerate
 
-            # Note the start time and construct a stream to hold image data
-            # temporarily (we could write it directly to connection but in this
-            # case we want to find out the size of each capture first to keep
-            # our protocol simple)
-            start = time.time()
-            stream = io.BytesIO()
-            for foo in camera.capture_continuous(stream, 'jpeg'):
-                # Write the length of the capture to the stream and flush to
-                # ensure it actually gets sent
-                connection.write(struct.pack('<L', stream.tell()))
-                connection.flush()
-                # Rewind the stream and send the image data over the wire
-                stream.seek(0)
-                connection.write(stream.read())
-                # If we've been capturing for more than 30 seconds, quit
-                if time.time() - start > 30:
-                    break
-                # Reset the stream for the next capture
-                stream.seek(0)
-                stream.truncate()
-        # Write a length of zero to the stream to signal we're done
-        connection.write(struct.pack('<L', 0))
-    finally:
-        connection.close()
-        client_socket.close()
+        self.thread_prev = threading.Thread(target=self.camera.start_preview)
+        self.thread_prev.start()
+
+    def preview_and_rec(self, fname='my_vid.h264', folder='/'):
+        """
+        Display and record a video preview from the rPi
+        """
+        self.camera = picamera.PiCamera()
+        self.camera.resolution = self.res
+        self.camera.framerate = self.framerate
+
+        fname_full = folder+fname
+        self.thread_prev = threading.Thread(target=self.camera.start_preview)
+        self.thread_rec = threading.Thread(target=self.camera.start_recording,
+                                           args=(fname_full))
+
+        self.thread_prev.start()
+        self.thread_rec.start()
+
+    def stop_rec(self):
+        self.thread_prev.join()
+        self.thread_rec.join()
+        self.camera.stop_recording()
