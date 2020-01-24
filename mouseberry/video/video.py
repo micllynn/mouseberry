@@ -1,8 +1,6 @@
-import os, sys, io
 import threading
-import struct
-import time
 import picamera
+
 
 class Video():
 
@@ -43,4 +41,4 @@ class Video():
     def stop_rec(self):
         self.thread_prev.join()
         self.thread_rec.join()
-        self.camera.stop_recording()
+        self.camera.stop_recording

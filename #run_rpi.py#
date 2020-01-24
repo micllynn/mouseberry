@@ -1,3 +1,0 @@
-import mouseberry as mb
-
-mb.server.send_video(framerate=60)
