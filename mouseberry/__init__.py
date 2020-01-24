@@ -1,1 +1,1 @@
-from .core import Video
+from .groups import core
