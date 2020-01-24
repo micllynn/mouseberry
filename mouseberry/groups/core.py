@@ -1,5 +1,12 @@
+from mouseberry.audio.core import Tone
+from mouseberry.video.core import Video
+from mouseberry.data.core import Data
+from mouseberry.pi_io.core import (Measurement, Reward, GenericStim)
 
-from .. import audio, data, pi_io, video
+import os
+import sys
+import time
+import threading
 import numpy as np
 
 
@@ -58,11 +65,15 @@ exp.run(l_trial, r_trial)
 
 
 def Experiment(object):
-    def __init__(self, n_trials=100, iti=np.random.exp(scale=1/20)):
+    def __init__(self, n_trials, iti):
         self.n_trials = n_trials
         self.iti = iti
 
-    def add_measurement(self, name=None, pin=None, sampling_rate=None):
+    def add_video(self):
+
+        return
+
+    def add_measurement(self, name, pin, sampling_rate):
 
         return
 
@@ -72,11 +83,16 @@ def Experiment(object):
 
 
 def Trial(object):
+    def __init__(self, p):
+        self.p = p
+        self._events = []
 
-    def add_tone(self, name=None, f=None, t_start=None, t_end=None):
-
+    def add_tone(self, name, f, t_start, t_end):
+        _tone_length = t_end - t_start
+        self._events.append(Tone(frequency=f,
+                                      tone_length=_tone_length))
         return
 
-    def add_rew(self, name=None, pin=None, vol=None, rate=None):
+    def add_rew(self, name, pin, vol, rate):
 
         return

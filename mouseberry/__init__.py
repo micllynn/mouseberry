@@ -1,1 +1,1 @@
-from .groups import core
+from .groups.core import (Experiment, Trial)
