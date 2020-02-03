@@ -3,6 +3,7 @@ Functions to control all GPIO-related inputs and outputs.
 '''
 from mouseberry.events.core import Event, Measurement
 import time
+import threading
 import GPIO
 from types import SimpleNamespace
 
@@ -153,47 +154,47 @@ class GenericStim(GPIOEvent):
 
 
 class Lickometer(GPIOMeasurement):
-    def __init__(self, name, pin, sampling_rate):
-        """Create an object which measures licks from a lickometer.
+    """Create an object which measures licks from a lickometer.
 
-        Parameters
-        ----------
-        name : str
-            Name of event.
-        pin : int
-            Pin of the GPIO measurement
-        sampling_rate : float
-            Sampling rate of the pin (Hz)
-        """
+    Parameters
+    ----------
+    name : str
+        Name of event.
+    pin : int
+        Pin of the GPIO measurement
+    sampling_rate : float
+        Sampling rate of the pin (Hz)
+    """
+
+    def __init__(self, name, pin, sampling_rate):
         GPIOMeasurement.__init__(self, name, pin, sampling_rate)
 
-    def _measure(self, sampling_duration):
+    def _start_measurement(self):
         """
         Starts measuring lickrate for a given frequency.
         Lickrates and associated times are stored in
         self._licks and self._t_licks.
-
-        Parameters
-        ---------
-        sampling_duration : float
-            Duration of sampling epoch (s)
         """
 
-        self._temp = SimpleNamespace()
-        self._temp.licks = []
-        self._temp.t = []
+        self.data = []
+        self.t = []
 
-        num_samples = int(sampling_duration * self.sampling_rate)
+        self.thread = SimpleNamespace()
+        self.thread.measure = threading.Thread(target=self._measure_loop)
+        self.thread.measure.run()
 
-        for sample in range(num_samples):
-
+    def _measure_loop(self):
+        while not self.thread.stop_signal.is_set():
             if GPIO.input(self.pin):
                 # register lick
-                self._temp.licks.append(1)
+                self._temp.data.append(1)
                 self._temp.t.append(time.time())
             else:
                 # register no lick
-                self._temp.licks.append(0)
+                self._temp.data.append(0)
                 self._temp.t.append(time.time())
 
             time.sleep(1 / self.sampling_rate)
+
+    def _stop_measurement(self):
+        self.thread.stop_signal.set()
