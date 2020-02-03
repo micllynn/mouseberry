@@ -40,6 +40,9 @@ class Data():
                 (.ex_measurement.data; .ex_measurement.t)
             self.trials.events[trial_ind]
                 (.ex_trial.t_start, .ex_trial.t_end
+
+    hdf5 file info
+    --------
     '''
 
     def __init__(self, parent):

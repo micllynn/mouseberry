@@ -1,6 +1,7 @@
 from mouseberry.data.core import Data
 
 import time
+import logging
 import numpy as np
 from types import SimpleNamespace
 
@@ -170,6 +171,7 @@ class Trial(BaseGroup):
         for event_name in self.events._sort_by_time:
             _curr_event = getattr(self.events, event_name)
             _curr_event.trigger()
+            logging.debug(f'{event_name} triggered at {time.time()}s.')
 
 
 class Experiment(BaseGroup):
@@ -253,6 +255,7 @@ class Experiment(BaseGroup):
         2. Starts video (self.vid.run())
         3. Logs start time of trial (self._curr_ttype._trial_t_start)
         """
+        logging.info(f'Current trial: {ind_trial}')
         self._curr_n_trial = ind_trial
         self._pick_curr_ttype()
         self.vid.run()
@@ -275,6 +278,7 @@ class Experiment(BaseGroup):
 
         _curr_ttype_name = np.random.choice(ttype_names, p=ttype_p)
         self._curr_ttype = getattr(self.ttypes, _curr_ttype_name)
+        logging.info(f'\nCurrent trialtype: {self._curr_ttype.name}')
 
     def _end_curr_trial(self):
         """Ends the current trial.
@@ -294,10 +298,12 @@ class Experiment(BaseGroup):
         or which is drawn from a scipy.stats distribution.
         """
         if type(self.iti) is float:
+            logging.info('\nITI: {self.iti}s')
             return self.iti
         elif 'scipy.stats' in str(self.iti.__class__):
             assert self.iti_args is not None
             _iti = self.iti.rvs(size=1, **self.iti_args)[0]
+            logging.info('\nITI: {_iti}s')
             return _iti
 
     def _write_file(self):
