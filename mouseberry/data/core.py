@@ -1,5 +1,5 @@
 """
-Data storage functions for hdf5 and pkl.
+Data storage functions for hdf5
 """
 
 import os
@@ -9,7 +9,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import h5py
-import matplotlib.pyplot as plt
 
 
 class Data():
@@ -27,22 +26,31 @@ class Data():
     --------
     self.exp : SimpleNamespace()
         Stores attributes for the entire experiment. Consists of:
-            self.exp.mouse_id
-            self.exp.n_trials
-            self.exp.t_experiment
-            self.exp.user
+
+        self.exp.mouse_id
+        self.exp.n_trials
+        self.exp.t_experiment
+        self.exp.user
+
     self.trials : SimpleNamespace()
         Stores attributes for the given trial. Consists of:
-            self.trials.name[ind_trial]
-            self.trials.t_start[ind_trial]
-            self.trials.t_end[ind_trial]
-            self.trials.measurements[trial_ind]
-                (.ex_measurement.data; .ex_measurement.t)
-            self.trials.events[trial_ind]
-                (.ex_trial.t_start, .ex_trial.t_end
+
+        self.trials.name[ind_trial]
+        self.trials.t_start[ind_trial]
+        self.trials.t_end[ind_trial]
+
+        self.trials.measurements
+            .ex_measurement.data[ind_trial]
+            .ex_measurement.t[ind_trial]
+        self.trials.events[trial_ind]
+            .ex_event.t_start
+            .ex_event.t_end
+            .ex_trial.ex_parameter
 
     hdf5 file info
     --------
+    exp : group
+    
     '''
 
     def __init__(self, parent):
@@ -55,8 +63,8 @@ class Data():
         self.setup_trial_attrs()
 
     def store_attrs_from_exp(self):
-        """ Stores all relevant attributes located in Experiment class instance
-        as attributes within Data.
+        """ Stores all relevant attributes located in parent Experiment
+        class instance as attributes within Data.
         """
 
         self.exp.mouse_id = self.__parent__.mouse
@@ -74,63 +82,93 @@ class Data():
         # Simple subattributes for the trial
         # -----------
         subattrs = ['name', 't_start', 't_end']
-        subattrs_dtype = [list, np.ndarray, np.ndarray]
+        subattrs_dtype = [list, np.float64, np.float64]
         for ind, subattr in enumerate(subattrs):
             subattr_contents = np.empty((n_trials), dtype=subattrs_dtype[ind])
             setattr(self.trials, subattr, subattr_contents)
 
         # Measurement and event subattributes for the trial
         # ---------
-        self.trials.measurements = np.empty(n_trials, dtype=object)
         self.trials.events = np.empty(n_trials, dtype=object)
+        self.trials.measurements = SimpleNamespace()
+        for measurement_name in self.__parent__.measurements.__dict__.keys():
+            setattr(self.trials.measurements, measurement_name,
+                    SimpleNamespace(t=np.empty((n_trials), dtype=np.ndarray),
+                                    data=np.empty((n_trials),
+                                                  dtype=np.ndarray)))
 
     def store_attrs_from_curr_trial(self):
         """Takes all measurements and events stored temporarily in
         _curr_trial of the experiment class, and stores them in data.
         """
-        curr_ttype = self.__parent__._curr_ttype
+        curr_trial = self.__parent__._curr_ttype
         ind_trial = self.__parent__._curr_n_trial
 
         # Store simple subattributes for the trial
-        self.trials.name[ind_trial] = curr_ttype.name
-        self.trials.t_start[ind_trial] = curr_ttype._trial_t_start
-        self.trials.t_end[ind_trial] = curr_ttype._trial_t_end
+        # -----------------
+        self.trials.name[ind_trial] = curr_trial.name
+        self.trials.t_start[ind_trial] = curr_trial._trial_t_start
+        self.trials.t_end[ind_trial] = curr_trial._trial_t_end
 
         # Store measurements
-        self.trials.measurements[ind_trial] = SimpleNamespace()
-
-        list_measure_names = list(curr_ttype.measurements.__dict__)
-        for measure_name in list_measure_names:
-            setattr(self.trials.measurements[ind_trial],
-                    measure_name, SimpleNamespace())
-
-            _data = getattr(curr_ttype.measurements, measure_name).data
-            _t = getattr(curr_ttype.measurements,
-                         measure_name).t - curr_ttype._trial_t_start
-
-            curr_measurement = getattr(self.trials.measurements[ind_trial],
-                                       measure_name)
-            curr_measurement.data = _data
-            curr_measurement.t = _t
+        # ----------------
+        measure_keys = curr_trial.measurements.__dict__.keys()
+        for key in measure_keys:
+            _measure_in_data = getattr(self.trials.measurements,
+                                       key)
+            _measure_in_data.t[ind_trial] = getattr(
+                curr_trial.measurements, key).t
+            _measure_in_data.data[ind_trial] = getattr(
+                curr_trial.measurements, key).data
 
         # Store event starts and stops
+        # ------------------
         self.trials.events[ind_trial] = SimpleNamespace()
 
-        list_event_names = list(curr_ttype.events.__dict__)
-        for event_name in list_event_names:
-            setattr(self.trials.events[ind_trial], event_name,
+        event_keys = curr_trial.events.__dict__.keys()
+        for event_key in event_keys:
+            setattr(self.trials.events[ind_trial], event_key,
                     SimpleNamespace())
 
-            _t_start = getattr(curr_ttype.events, event_name)._t_start
-            _t_end = getattr(curr_ttype.events, event_name)._t_end
+            curr_event_in_data = getattr(self.trials.events[ind_trial],
+                                         event_key)
 
-            curr_event = getattr(self.trials.events[ind_trial], event_name)
-            curr_event.t_start = _t_start
-            curr_event.t_end = _t_end
+            # Log start and end time
+            _logged_t_start = getattr(curr_trial.events, event_key)\
+                ._logged_t_start
+            _logged_t_end = getattr(curr_trial.events, event_key)\
+                ._logged_t_end
+            curr_event_in_data.t_start = _logged_t_start
+            curr_event_in_data.t_end = _logged_t_end
 
-        # Store next trial's ITI
+            # Log all event attributes, like tone frequency and h20 vol.
+            event_attr_keys = curr_event_in_data.__dict__.keys()
+            for event_attr_key in event_attr_keys:
+                event_attr_val = getattr(getattr(
+                    curr_trial.events, event_key), event_attr_key)
+                setattr(curr_event_in_data, event_attr_key, event_attr_val)
 
     def write_hdf5(self, filename=None):
+        """Writes an HDF5 file after an experiment is terminated.
+
+        Notes on file storage
+        ---------------
+        / : base group containing experiment metadata
+            /.attrs['mouse_id']
+            /.attrs['n_trials']
+            /.attrs['t_experiment']
+            /.attrs['user']
+        /trials : group containing trial info, measurements and events.
+            /trials/name[ind_trial]
+            /trials/t_start[ind_trial]
+            /trials/t_end[ind_trial]
+
+
+            /trials/measurements/ex_meas/data[ind_trial] : actual data
+            /trials/measurements/ex_meas/t[ind_trial] : time of each datapoint
+
+            /trials/events/ex_event/
+        """
         if filename is None:
             filename = str(self.exp.mouse_id) + str(self.exp.t_experiment) \
                 + '.hdf5'
@@ -138,22 +176,22 @@ class Data():
         with h5py.File(filename, 'w') as f:
             # Experiment attributes
             # ------------
-            f.create_group('exp')
             for attr in self.exp.__dict__.keys():
                 f.attrs[attr] = getattr(self.exp, attr)
 
             # Trial attributes (simple)
             # -----------------
             trials = f.create_group('trials')
+            measurements = trials.create_group('measurements')
+            events = trials.create_group('events')
 
-            trial_attrs = ['name', 't_start', 't_end']
-            for attr in trial_attrs:
-                trials.create_dataset(attr, data=getattr(self.trials, attr))
+            for trial_attr in self.trials.__dict__.keys():
+                if trial_attr is not 'events' and trial_attr is not 'measurements':
+                    trials.create_dataset(
+                        trial_attr, data=getattr(self.trials, attr))
 
             # Trial attributes (complex; measurements and events)
             # -----------------
-            measurements = trials.create_group('measurements')
-            events = trials.create_group('events')
 
             for trial in range(self.__parent__.n_trials):
                 meas_thistr = measurements.create_group(str(trial))

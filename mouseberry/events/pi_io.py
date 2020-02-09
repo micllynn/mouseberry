@@ -2,6 +2,8 @@
 Functions to control all GPIO-related inputs and outputs.
 '''
 from mouseberry.events.core import Event, Measurement
+from mouseberry.tools.time import pick_time
+import math
 import time
 import threading
 import GPIO
@@ -14,20 +16,20 @@ def _GPIOSetupHelper(pin, io):
 
 
 class GPIOEvent(Event):
-    def __init__(self, name, pin):
-        """Base class for GPIO Events (outputs). Inherits from Event class.
+    """Base class for GPIO Events (outputs). Inherits from Event class.
 
-        Parmaeters
-        -----------
-        name : str
-            Name of event.
-        t_start : float
-            Start time of event (s)
-        t_end : float
-            End time of event (s)
-        pin : int
-            Pin of the GPIO event
-        """
+    Parmaeters
+    -----------
+    name : str
+        Name of event.
+    t_start : float
+        Start time of event (s)
+    t_end : float
+        End time of event (s)
+    pin : int
+        Pin of the GPIO event
+    """
+    def __init__(self, name, pin):
         Event.__init__(name)
         self.pin = pin
         _GPIOSetupHelper(self.pin, GPIO.OUT)
@@ -38,18 +40,18 @@ class GPIOEvent(Event):
 
 
 class GPIOMeasurement(Measurement):
-    def __init__(self, name, pin, sampling_rate):
-        """Base class for GPIO Measurements (inputs). Inherits from Measurement class.
+    """Base class for GPIO Measurements (inputs). Inherits from Measurement class.
 
-        Parmaeters
-        -----------
-        name : str
-            Name of event.
-        pin : int
-            Pin of the GPIO measurement
-        sampling_rate : float
-            Sampling rate of the pin (Hz)
-        """
+    Parmaeters
+    -----------
+    name : str
+        Name of event.
+    pin : int
+        Pin of the GPIO measurement
+    sampling_rate : float
+        Sampling rate of the pin (Hz)
+    """
+    def __init__(self, name, pin, sampling_rate):
         Measurement.__init__(name, sampling_rate)
         self.pin = pin
         _GPIOSetupHelper(self.pin, GPIO.IN)
@@ -60,91 +62,113 @@ class GPIOMeasurement(Measurement):
 
 
 class Reward(GPIOEvent):
-    def __init__(self, name, pin, t_start, rate, volume):
-        """Create an object which delivers liquid rewards based on
-        a particular GPIO pin.
+    """Create an object which delivers liquid rewards based on
+    a particular GPIO pin.
 
-        Parameters
-        --------------
-        name : str
-            Name of event.
-        pin : int
-            Pin of the GPIO measurement
-        t_start : float or np.random distribution
-            Delivery time of the reward (seconds)
-        rate : float
-            Delivery rate of liquid (uL/sec)
-        volume : float
-            Total volume of water to dispense (uL)
-        """
+    Parameters
+    --------------
+    name : str
+        Name of event.
+    pin : int
+        Pin of the GPIO measurement
+    rate : float
+        Delivery rate of liquid (uL/sec)
+    volume : float
+        Total volume of water to dispense (uL)
 
+    t_start : float or sp.stats distribution
+        Delivery time of the reward (seconds)
+    t_start_args : dict, optional
+        A dictionary of arguments for the distribution.
+        Passed to sp.stats.rvs
+    t_start_min : float
+        Minimum t_start allowed.
+    t_start_max : float
+        Maximum t_start allowed.
+    """
+
+    def __init__(self, name, pin, rate, volume,
+                 t_start, t_start_args=None,
+                 t_start_min=-math.inf, t_start_max=math.inf):
         GPIOEvent.__init__(name, pin)
         self.t_start = t_start
+        self.t_start_args = t_start_args
+        self.t_start_min = t_start_min
+        self.t_start_max = t_start_max
+
         self.rate = rate
         self.volume = volume
         self.t_duration = self.volume / self.rate
 
-    def _set_t_start(self):
+    def set_t_start(self):
         """Returns a t_start for this trial
         """
+        _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
+                             t_min=self.t_start_min, t_max=self.t_start_max)
+        return _t_start
 
-        return self.t_start
-
-    def _set_t_end(self):
+    def set_t_end(self):
         """Returns a t_end for this trial
         """
-        _t_end = self.t_start + self.t_duration
+        t_end = self._t_start + self.t_duration
+        return t_end
 
-        return _t_end
-
-    def _trigger(self):
+    def on_trigger(self):
         """
         Trigger sequence for the reward
         """
-
         GPIO.output(self.pin, True)
         time.sleep(self.t_duration)
         GPIO.output(self.pin, False)
 
 
 class GenericStim(GPIOEvent):
-    """
-    Creates an object which triggers a generic stimulus output.
-    """
-    def __init__(self, name, pin, t_start, t_end):
-        """Create an object which delivers liquid rewards based on
-        a particular GPIO pin.
+    """Create an object which triggers a generic stimulus output
+    Parameters
+    --------------
+    name : str
+        Name of event.
+    pin : int
+        Pin of the GPIO measurement
+    duration : float
+        Total duration of the stimulus (seconds).
 
-        Parameters
-        --------------
-        name : str
-            Name of event.
-        pin : int
-            Pin of the GPIO measurement
-        t_start : float or np.random distribution
-            Delivery time of the reward (seconds)
-        rate : float
-            Delivery rate of liquid (uL/sec)
-        volume : float
-            Total volume of water to dispense (uL)
-        """
+    t_start : float or sp.stats distribution
+        Start time of the stim.
+    t_start_args : dict, optional
+        A dictionary of arguments for the distribution.
+        Passed to sp.stats.rvs
+    t_start_min : float
+        Minimum t_start allowed.
+    t_start_max : float
+        Maximum t_start allowed.
+    """
 
+    def __init__(self, name, pin, duration,
+                 t_start, t_start_args=None,
+                 t_start_min=-math.inf, t_start_max=math.inf):
         GPIOEvent.__init__(name, pin)
-        self.t_start = t_start
-        self.t_end = t_end
-        self.t_duration = self.t_end - self.t_start
+        self.t_duration = duration
 
-    def _set_t_start(self):
+        self.t_start = t_start
+        self.t_start_args = t_start_args
+        self.t_start_min = t_start_min
+        self.t_start_max = t_start_max
+
+    def set_t_start(self):
         """Returns a t_start for this trial
         """
-        return self.t_start
+        _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
+                             t_min=self.t_start_min, t_max=self.t_start_max)
+        return _t_start
 
-    def _set_t_end(self):
+    def set_t_end(self):
         """Returns a t_end for this trial
         """
-        return self.t_end
+        t_end = self._t_start + self.t_duration
+        return t_end
 
-    def _trigger(self):
+    def on_trigger(self):
         """
         Trigger sequence for the reward
         """
@@ -169,7 +193,7 @@ class Lickometer(GPIOMeasurement):
     def __init__(self, name, pin, sampling_rate):
         GPIOMeasurement.__init__(self, name, pin, sampling_rate)
 
-    def _start_measurement(self):
+    def on_start(self):
         """
         Starts measuring lickrate for a given frequency.
         Lickrates and associated times are stored in
@@ -180,10 +204,10 @@ class Lickometer(GPIOMeasurement):
         self.t = []
 
         self.thread = SimpleNamespace()
-        self.thread.measure = threading.Thread(target=self._measure_loop)
+        self.thread.measure = threading.Thread(target=self.measure_loop)
         self.thread.measure.run()
 
-    def _measure_loop(self):
+    def measure_loop(self):
         while not self.thread.stop_signal.is_set():
             if GPIO.input(self.pin):
                 # register lick
@@ -196,5 +220,5 @@ class Lickometer(GPIOMeasurement):
 
             time.sleep(1 / self.sampling_rate)
 
-    def _stop_measurement(self):
+    def on_stop(self):
         self.thread.stop_signal.set()

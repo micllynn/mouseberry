@@ -1,5 +1,8 @@
 from mouseberry.data.core import Data
+from mouseberry.tools.time import pick_time
 
+import sys
+import math
 import time
 import logging
 import numpy as np
@@ -16,19 +19,19 @@ rew_sm = Reward(name='rew_sm', pin=5, vol=4, rate=40,
 rew_lg = Reward(name='rew_lm', pin=5, vol=10, rate=40,
             t_start=np.random.norm(loc=6, scale=1),
             t_start_lims=[5, 10])
-lick_measure = Lickometer(name='lick_measure', pin=1, sampling_rate=200)
 
-trial_sm = Trial(name='trial_sm', p=0.5, events=[tone_sm, rew_sm],
+trial_sm = TrialType(name='trial_sm', p=0.5, events=[tone_sm, rew_sm],
         measurements=[lick_measure])
 trial_sm.add_end_time(4)
-trial_lg = Trial(name='trial_lg', p=0.5, events=[tone_lg, rew_lg],
+trial_lg = TrialType(name='trial_lg', p=0.5, events=[tone_lg, rew_lg],
         measurements=[lick_measure])
 trial_lg.add_end_time(4)
 
 vid = Video(preview=True, record=False)
+lick_measure = Lickometer(name='lick_measure', pin=1, sampling_rate=200)
 
 exp = Experiment(n_trials=200, iti=np.random.exp, iti_args={'scale':1/20})
-exp.run(trial_sm, trial_lg, vid)
+exp.run(trial_sm, trial_lg, vid, lick_measure)
 '''
 
 
@@ -91,14 +94,15 @@ class BaseGroup(object):
             setattr(getattr(self, str_nspace), item.name, item)
 
 
-class Trial(BaseGroup):
+class TrialType(BaseGroup):
     """
     Define a trial-type which is used as a generator for
     particular trials during the experiment.
 
-    Trials consist of Events, which have defined start and end times,
-    and Measurements, which poll continuously throughout the trial,
-    starting at the beginning and only stopping at the end.
+    TrialTypes consist of Events, which have defined start and end times.
+
+    Measurements are added to the TrialType.measurement attribute by
+    being passed to the Experiment class instance first, which adds them here.
 
     Parameters
     ---------------
@@ -108,15 +112,30 @@ class Trial(BaseGroup):
         Probability of the trial occurring in the experiment.
     events : list
         A list of all events to occur in the trial.
-    measurements: list
-        A list of all measurements to take place in the trial.
     """
 
-    def __init__(self, name, p, events, measurements):
+    def __init__(self, name, p, events):
         self.name = name
         self.p = p
         self._store_list_in_attribute(events, 'events')
-        self._store_list_in_attribute(measurements, 'measurements')
+        self.t_end = None
+
+    def add_end_time(self, t_end):
+        """Adds a given amount of time to the end of the trial.
+
+        Parameters
+        ---------------
+        end_time : float
+            Amount of end-time to add after the last event terminates,
+            but before the trial stops (s).
+        """
+        self.t_end = t_end
+
+    def _store_measurement_from_exp(self, measurement):
+        """Stores measurement passed from Experiment instance
+        within self.measurements.
+        """
+        setattr(self.measurements, measurement.name, measurement)
 
     def _start_all_measurements(self):
         """ Starts all measurement threads.
@@ -141,7 +160,7 @@ class Trial(BaseGroup):
         self._sort_events_by_time()
 
     def _set_all_event_times(self):
-        """ Sets the start/end times for all events within this Trial()
+        """ Sets the start/end times for all events within this TrialType()
         imstance.
 
         Set times are located in self.events.event._t_start and ._t_end.
@@ -168,10 +187,30 @@ class Trial(BaseGroup):
     def _trigger_events_sequentially(self):
         """ Triggers each events sequentially after sorting.
         """
-        for event_name in self.events._sort_by_time:
+        events_by_time = self.events._sort_by_time
+        
+        # Schedule events by time
+        # --------------
+        t_scheduled = np.ones(len(events_by_time))\
+            * self._trial_t_start
+        for ind, event_name in enumerate(events_by_time):
             _curr_event = getattr(self.events, event_name)
+            t_scheduled[ind] += _curr_event._t_start
+
+        # Proceed through events, triggering and waiting as required.
+        # --------------
+        for ind, event_name in enumerate(events_by_time):
+            _curr_event = getattr(self.events, event_name)
+
+            while time.time() < t_scheduled[ind]:
+                time.sleep(0.0001)
+
             _curr_event.trigger()
-            logging.debug(f'{event_name} triggered at {time.time()}s.')
+
+        # End time waiting
+        # ------------
+        if self.t_end is not None:
+            time.sleep(t_end)
 
 
 class Experiment(BaseGroup):
@@ -180,37 +219,52 @@ class Experiment(BaseGroup):
 
     Parameters
     ------------
-    trials : list of Trial() instances
-        All Trial() types which should be included in the Experiment.
-    vid : Video() instance
-        Video type to be run each trial.
     n_trials : int
         Number of trials for the experiment.
-    iti : float or sp.dist distribution.
+    iti : float or scipy.stats distribution.
         Either a single inter-trial interval value (sec), or
         a distribution from sp.dist.
         If a distribution is given, iti_args must also be passed
         (see below.)
-    iti_args : None or Dictionary
+    iti_args : dict (optional)
         If iti is a distribution, iti_args contains a dictionary of
         values to pass to the distribution in order to draw single
         values of iti's.
         i.e. a single value is drawn using iti.rvs(**iti_args).
+    iti_min : float
+        Minimum value permitted for the drawn iti's
+    iti_max : float
+        Maximum value permitted for the drawn iti's
     """
 
-    def __init__(self, n_trials, iti, iti_args=None):
+    def __init__(self, n_trials, iti, iti_args=None,
+                 iti_min=-math.inf, iti_max=math.inf):
         self.n_trials = n_trials
         self.iti = iti
         self.iti_args = iti_args
+        self.iti_min = iti_min
+        self.iti_max = iti_max
 
-    def run(self, *args):
+    def run(self, *args, log_level=logging.INFO):
         """Main method of Experiment class. Runs the experiment by
         dynamically picking trialtypes, with on-the-fly event scheduling
-        and triggering within each trialtype, as well as threaded measurements
-        and data storage.
+        and triggering within each trialtype, as well as threaded background
+        measurements and data storage.
 
         An HDF5 file is created after the experiment terminates.
+
+        Parameters
+        ------------
+        args : TrialType, Measurement or Video class instances
+            The trialtypes, measurements and video instances used to run
+            the current trial.
+        log_level : logging level
+            The level of logging to enable. By default, this is logging.INFO,
+            which wil print out basic information about the current
+            trial-type, etc.
         """
+        logging.basicConfig(stream=sys.stdout, level=log_level)
+
         self._parse_run_args(args)
         self._start_experiment()
 
@@ -229,24 +283,48 @@ class Experiment(BaseGroup):
         self._write_file()
 
     def _parse_run_args(self, args):
-        """Parses run arguments into either trialtypes or videos
+        """Parses run arguments into TrialType, Measurement or Video.
+
+        Stores in the appropriate attribute of the experiment instance
         """
         self.ttypes = SimpleNamespace()
+        self.measurements = SimpleNamespace()
 
+        # parse the args and store in attrs
         for arg in args:
             if 'Video' in str(arg.__class__):
                 self.vid = arg
-            elif 'Trial' in str(arg.__class__):
+            elif 'TrialType' in str(arg.__class__):
                 setattr(self.ttypes, arg.name, arg)
+            elif 'Measurement' in str(arg.__class__):
+                setattr(self.measurements, arg.name, arg)
             else:
-                logging.error('An argument to run() is neither a Trial nor \
-                a Video. It will be ignored.')
+                logging.error('An argument to run() is not a Trial, a \
+                Measurement, or a Video. It will be ignored.')
+
+        # Now store each Measurement within each TrialType for convenience
+        for _ttype in self.ttypes.__dict_.values():
+            for _measurement in self.measurements.__dict__.values():
+                _ttype._store_measurement_from_exp(_measurement)
 
     def _start_experiment(self):
         """Starts the experiment.
         """
         self.mouse = input('Enter the mouse ID: ')
         self.data = Data(self)
+        self._setup_trial_chooser()
+
+    def _setup_trial_chooser(self):
+        """Sets up the trial-type probabilities for quick choosing
+        during the experiment.
+        """
+        self._tr_chooser = SimpleNamespace()
+        self._tr_chooser.names = self.ttypes.__dict__.keys()
+        self._tr_chooser.p = []
+
+        for ttype_name in self._tr_chooser.names:
+            _ttype_instance = getattr(self.ttypes, ttype_name)
+            self._tr_chooser.p.append(_ttype_instance.p)
 
     def _start_curr_trial(self, ind_trial):
         """Initializes a trial.
@@ -266,17 +344,8 @@ class Experiment(BaseGroup):
         Chooses a trialtype to proceed, based on occurence
         probabilities. Stores it in self._curr_ttype
         """
-        ttype_names = []
-        ttype_p = []
-
-        list_ttypes = list(self.ttypes.__dict__)
-        for ttype_name in list_ttypes:
-            _ttype_instance = getattr(self.ttypes, ttype_name)
-
-            ttype_names.append(ttype_name)
-            ttype_p.append(_ttype_instance.p)
-
-        _curr_ttype_name = np.random.choice(ttype_names, p=ttype_p)
+        _curr_ttype_name = np.random.choice(self._tr_chooser.names,
+                                            p=self._tr_chooser.p)
         self._curr_ttype = getattr(self.ttypes, _curr_ttype_name)
         logging.info(f'\nCurrent trialtype: {self._curr_ttype.name}')
 
@@ -297,14 +366,11 @@ class Experiment(BaseGroup):
         Returns an inter-trial value which is either a singular value,
         or which is drawn from a scipy.stats distribution.
         """
-        if type(self.iti) is float:
-            logging.info('\nITI: {self.iti}s')
-            return self.iti
-        elif 'scipy.stats' in str(self.iti.__class__):
-            assert self.iti_args is not None
-            _iti = self.iti.rvs(size=1, **self.iti_args)[0]
-            logging.info('\nITI: {_iti}s')
-            return _iti
+
+        iti = pick_time(self.iti, t_args=self.iti_args,
+                        t_min=self.iti_min, t_max=self.iti_max)
+        logging.info('\nITI: {iti}s')
+        return iti
 
     def _write_file(self):
         """ Writes an hdf5 file from self.data.
