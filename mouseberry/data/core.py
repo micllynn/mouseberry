@@ -158,67 +158,112 @@ class Data():
             /.attrs['n_trials']
             /.attrs['t_experiment']
             /.attrs['user']
-        /trials : group containing trial info, measurements and events.
-            /trials/name[ind_trial]
-            /trials/t_start[ind_trial]
-            /trials/t_end[ind_trial]
 
+        trials : group containing trial info, measurements and events.
+            trials/name[ind_trial]
+            trials/t_start[ind_trial]
+            trials/t_end[ind_trial]
 
-            /trials/measurements/ex_meas/data[ind_trial] : actual data
-            /trials/measurements/ex_meas/t[ind_trial] : time of each datapoint
+            --- Event storage ---
+            ** 1. Fast indexing way (shared attributes like t_event_start)
+            trials/events/t_event_start[ind_trial, ind_event]
+            trials/events/t_event_end[ind_trial, ind_event]
+            trials/events/event_name[ind_trial, ind_event]
 
-            /trials/events/ex_event/
+            ** 2. POSIX directory way (unique attributes like v_rew, tone_freq)
+            trial0/event0/t_event_start
+            trial0/event0/t_event_end
+            trial0/event0/event_name
+            trial0/event0/_any_attribute_
+
+            --- Measurement storage ---
+            trials/measurements/ex_meas/data[ind_trial] : actual data
+            trials/measurements/ex_meas/t[ind_trial] : time of each datapoint
         """
         if filename is None:
             filename = str(self.exp.mouse_id) + str(self.exp.t_experiment) \
                 + '.hdf5'
 
+        # Precompute the maximum number of events the TrialTypes possess
+        max_n_events = 0
+        for ttype in self.__parent__.ttypes.__dict__.values():
+            _n_events = len(ttype.events.__dict__.keys())
+            if _n_events > max_n_events:
+                max_n_events = _n_events
+
+        # Store the file
         with h5py.File(filename, 'w') as f:
+            trials = f.create_group('trials')
+            events = trials.create_group('events')
+            measurements = trials.create_group('measurements')
+
             # Experiment attributes
             # ------------
             for attr in self.exp.__dict__.keys():
                 f.attrs[attr] = getattr(self.exp, attr)
 
-            # Trial attributes (simple)
+            # Measurements
+            # --------------
+            measurement_names = self.trials.measurements.__dict__.keys()
+            for name in measurement_names:
+                msment_in_data = getattr(self.trials.measurements, name)
+                msment_in_h5 = measurements.create_group(name)
+                msment_in_h5.create_dataset('t',
+                                            data=msment_in_data.t)
+                msment_in_h5.create_dataset('data',
+                                            data=msment_in_data.data)
+
+            # Trial attributes
             # -----------------
-            trials = f.create_group('trials')
-            measurements = trials.create_group('measurements')
-            events = trials.create_group('events')
 
-            for trial_attr in self.trials.__dict__.keys():
-                if trial_attr is not 'events' and trial_attr is not 'measurements':
-                    trials.create_dataset(
-                        trial_attr, data=getattr(self.trials, attr))
+            # Fill datasets for trial attributes: t_start, etc.
+            # ex: /trials/name[ind_trial]
+            trial_attr_names = ['name', 't_start', 't_end']
+            trial_attr_dtypes = ['S10', 'f', 'f']
+            for ind, attr_name in enumerate(trial_attr_names):
+                trials.create_dataset(attr_name,
+                                      (self.__parent__.n_trials,),
+                                      data=getattr(self.trials, attr_name),
+                                      dtype=trial_attr_dtypes[ind])
 
-            # Trial attributes (complex; measurements and events)
-            # -----------------
+            # Init datasets for event attributes: name, t_event_start, etc.
+            # ex: /trials/events/t_event_start[ind_trial, ind_event]
+            shared_event_attrs = ['t_start', 't_end, name']
+            event_attr_dtypes = ['f', 'f', 'S10']
+            for ind, attr_name in enumerate(shared_event_attrs):
+                events.create_dataset(attr_name,
+                                      (self.__parent__.n_trials, max_n_events),
+                                      dtype=event_attr_dtypes[ind],
+                                      fillvalue=None)
 
-            for trial in range(self.__parent__.n_trials):
-                meas_thistr = measurements.create_group(str(trial))
-                events_thistr = events.create_group(str(trial))
+            # Fill datasets for event attributes
+            for ind_trial in range(self.__parent__.n_trials):
+                f.create_group(f'trial{ind_trial}')
+                _curr_trial = self.trials.events[ind_trial]
+                _curr_event_names = _curr_trial.__dict__.keys()
 
-                datas_meta = [self.trials.measurements, self.trials.events]
-                h5groups_meta = [meas_thistr, events_thistr]
-                names_meta = ['measurements', 'events']
+                for ind_event, event_name in enumerate(_curr_event_names):
+                    _curr_event = getattr(_curr_trial, event_name)
+                    _curr_h5 = f.create_group(
+                        f'trial{ind_trial}/event{ind_event}')
 
-                for ind, data_meta in enumerate(datas_meta):
-                    # First level: Measurement or event
-                    name_meta = names_meta[ind]
-                    h5group_meta = h5groups_meta[ind]
-                    list_subnames = list(data_meta[trial].__dict__)
+                    for shared_attr in shared_event_attrs:
+                        shared_attr_val = getattr(_curr_event, shared_attr)
 
-                    for subname in list_subnames:
-                        # Second level: measurement types (licks)
-                        # or event types (tone_on, reward)
-                        h5_subgroup = h5group_meta.create_group(subname)
-                        list_subsubnames = list(
-                            getattr(data_meta[trial], subname))
+                        # 1. Store fast indexing
+                        f[f'trials/events/{shared_attr}[ind_trial,ind_event]']\
+                            = shared_attr_val
 
-                        for subsubname in list_subsubnames:
-                            # Third level: actual data. (data and t; or
-                            # t_start and t_end)
-                            _data = getattr(getattr(
-                                data_meta[trial], subname),
-                                            subsubname)
-                            h5_subgroup.create_dataset(subsubname,
-                                                       data=_data)
+                        # 2. Store POSIX indexing
+                        _curr_h5.create_dataset(shared_attr,
+                                                data=shared_attr_val)
+
+                    # Consider non-shared attrs for events.
+                    _misc_attr_names = list(_curr_event.__dict__.keys())
+                    for attr in shared_event_attrs:
+                        _misc_attr_names.remove(attr)  # Remove shared attrs
+
+                    for attr in _misc_attr_names:
+                        nonshared_attr_val = getattr(_curr_event, attr)
+                        _curr_h5.create_dataset(attr,
+                                                data=nonshared_attr_val)

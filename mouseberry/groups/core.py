@@ -88,6 +88,16 @@ class BaseGroup(object):
         str_nspace : string
             A string denoting the name of the SimpleNamespace(),
             to be generated as an attribute inside of self.
+
+        Example
+        ----------
+        >> cls_instance = BaseGroup()
+        >> ex_list = [Event(name='john'), Event(name='fred')]
+        >> BaseGroup._store_list_in_attribute(ex_list, 'employees')
+
+        Now BaseGroup consists of:
+            BaseGroup.employees.john
+            BaseGroup.employees.fred
         """
         setattr(self, str_nspace, SimpleNamespace())
         for item in lst:
