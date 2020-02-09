@@ -8,10 +8,14 @@ import logging
 import numpy as np
 from types import SimpleNamespace
 
+"""Import status
+import mb
+from mouseberry.events.audio import Tone
+"""
 
 '''Ver1: Classical conditioning
 
-tone_sm = Tone(name='tone_sm', f=10000, t_start=4, t_end=5)
+tone_sm = Tone(name='tone_sm', f=10000, t_start=4, t_end=5, freq=4000)
 tone_lg = Tone(name='tone_lg', f=5000, t_start=4, t_end=5)
 rew_sm = Reward(name='rew_sm', pin=5, vol=4, rate=40,
             t_start=np.random.norm(loc=6, scale=1),
@@ -20,11 +24,9 @@ rew_lg = Reward(name='rew_lm', pin=5, vol=10, rate=40,
             t_start=np.random.norm(loc=6, scale=1),
             t_start_lims=[5, 10])
 
-trial_sm = TrialType(name='trial_sm', p=0.5, events=[tone_sm, rew_sm],
-        measurements=[lick_measure])
+trial_sm = mb.TrialType(name='trial_sm', p=0.5, events=[tone_sm, rew_sm])
 trial_sm.add_end_time(4)
-trial_lg = TrialType(name='trial_lg', p=0.5, events=[tone_lg, rew_lg],
-        measurements=[lick_measure])
+trial_lg = mb.TrialType(name='trial_lg', p=0.5, events=[tone_lg, rew_lg])
 trial_lg.add_end_time(4)
 
 vid = Video(preview=True, record=False)
