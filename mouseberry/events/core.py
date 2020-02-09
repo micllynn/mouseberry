@@ -147,8 +147,8 @@ class Measurement(object):
         try:
             self.on_start(**kwargs)
         except AttributeError:
-            logging.error(f'Cannot call start_measurement() in Measurement. \
-            .on_start() in {self.__class__} is not set.')
+            logging.error((f'Cannot call start_measurement() in Measurement. '
+                           '.on_start() in {self.__class__} is not set.'))
 
     def stop_measurement(self, **kwargs):
         """Stop measurement.

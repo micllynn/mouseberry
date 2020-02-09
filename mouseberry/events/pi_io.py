@@ -206,8 +206,9 @@ class Lickometer(GPIOMeasurement):
         self.t = []
 
         self.thread = SimpleNamespace()
+        self.thread.stop_signal = threading.Event()
         self.thread.measure = threading.Thread(target=self.measure_loop)
-        self.thread.measure.run()
+        self.thread.measure.start()
 
     def measure_loop(self):
         while not self.thread.stop_signal.is_set():
@@ -224,46 +225,3 @@ class Lickometer(GPIOMeasurement):
 
     def on_stop(self):
         self.thread.stop_signal.set()
-
-
-def MeasurementMock(Measurement):
-    """Mock measurement class for use with MacOS, etc.
-
-    Parameters
-    ------------
-    name : str
-        Name for class instance and associated attribute
-    sampling_rate : float
-        Sampling rate for mock data generation
-    """
-
-    def __init__(self, name, sampling_rate, thresh=0.01):
-        self.name = name
-        self.sampling_rate = sampling_rate
-        self.thresh = thresh
-
-    def on_start(self):
-        self.data = []
-        self.t = []
-
-        self.thread = SimpleNamespace()
-        self.thread.measure = threading.Thread(target=self.measure_loop)
-        self.thread.measure.run()
-
-    def measure_loop(self):
-        while not self.thread.stop_signal.is_set():
-            _datum = random.random()
-            if _datum < self.thresh:
-                # register lick
-                self._temp.data.append(1)
-                self._temp.t.append(time.time())
-            else:
-                # register no lick
-                self._temp.data.append(0)
-                self._temp.t.append(time.time())
-
-            time.sleep(1 / self.sampling_rate)
-
-    def on_stop(self):
-        self.thread.stop_signal.set()
-    

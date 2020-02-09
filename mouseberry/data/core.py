@@ -50,11 +50,10 @@ class Data():
     hdf5 file info
     --------
     exp : group
-    
     '''
 
     def __init__(self, parent):
-        self.__parent__ = weakref.ref(parent)
+        self.__parent__ = parent
 
         self.exp = SimpleNamespace()
         self.trials = SimpleNamespace()

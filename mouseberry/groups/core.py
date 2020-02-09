@@ -32,7 +32,7 @@ trial_lg.add_end_time(4)
 vid = Video(preview=True, record=False)
 lick_measure = Lickometer(name='lick_measure', pin=1, sampling_rate=200)
 
-exp = Experiment(n_trials=200, iti=np.random.exp, iti_args={'scale':1/20})
+exp = mb.Experiment(n_trials=200, iti=np.random.exp, iti_args={'scale':1/20})
 exp.run(trial_sm, trial_lg, vid, lick_measure)
 '''
 
@@ -130,6 +130,7 @@ class TrialType(BaseGroup):
         self.name = name
         self.p = p
         self._store_list_in_attribute(events, 'events')
+        self.measurements = SimpleNamespace()
         self.t_end = None
 
     def add_end_time(self, t_end):
@@ -152,15 +153,15 @@ class TrialType(BaseGroup):
     def _start_all_measurements(self):
         """ Starts all measurement threads.
         """
-        for meas_name in list(self.measurements.__dict__):
-            meas = getattr(self._curr_ttype.measurements, meas_name)
+        for meas_name in self.measurements.__dict__.keys():
+            meas = getattr(self.measurements, meas_name)
             meas.start_measurement()
 
     def _stop_all_measurements(self):
         """ Stops all measurement threads.
         """
         for meas_name in list(self.measurements.__dict__):
-            meas = getattr(self._curr_ttype.measurements, meas_name)
+            meas = getattr(self.measurements, meas_name)
             meas.stop_measurement()
 
     def _plan_event_times(self):
@@ -200,7 +201,7 @@ class TrialType(BaseGroup):
         """ Triggers each events sequentially after sorting.
         """
         events_by_time = self.events._sort_by_time
-        
+
         # Schedule events by time
         # --------------
         t_scheduled = np.ones(len(events_by_time))\
@@ -222,7 +223,7 @@ class TrialType(BaseGroup):
         # End time waiting
         # ------------
         if self.t_end is not None:
-            time.sleep(t_end)
+            time.sleep(self.t_end)
 
 
 class Experiment(BaseGroup):
@@ -290,7 +291,8 @@ class Experiment(BaseGroup):
 
             self._end_curr_trial()
 
-            time.sleep(self._pick_iti())
+            _iti = self._pick_iti()
+            time.sleep(_iti)
 
         self._write_file()
 
@@ -315,7 +317,7 @@ class Experiment(BaseGroup):
                 Measurement, or a Video. It will be ignored.')
 
         # Now store each Measurement within each TrialType for convenience
-        for _ttype in self.ttypes.__dict_.values():
+        for _ttype in self.ttypes.__dict__.values():
             for _measurement in self.measurements.__dict__.values():
                 _ttype._store_measurement_from_exp(_measurement)
 
@@ -331,7 +333,7 @@ class Experiment(BaseGroup):
         during the experiment.
         """
         self._tr_chooser = SimpleNamespace()
-        self._tr_chooser.names = self.ttypes.__dict__.keys()
+        self._tr_chooser.names = list(self.ttypes.__dict__.keys())
         self._tr_chooser.p = []
 
         for ttype_name in self._tr_chooser.names:
@@ -348,7 +350,10 @@ class Experiment(BaseGroup):
         logging.info(f'Current trial: {ind_trial}')
         self._curr_n_trial = ind_trial
         self._pick_curr_ttype()
-        self.vid.run()
+
+        if hasattr(self, 'vid'):
+            self.vid.run()
+
         self._curr_ttype._trial_t_start = time.time()
 
     def _pick_curr_ttype(self):
@@ -359,7 +364,7 @@ class Experiment(BaseGroup):
         _curr_ttype_name = np.random.choice(self._tr_chooser.names,
                                             p=self._tr_chooser.p)
         self._curr_ttype = getattr(self.ttypes, _curr_ttype_name)
-        logging.info(f'\nCurrent trialtype: {self._curr_ttype.name}')
+        logging.info(f'\tCurrent trialtype: {self._curr_ttype.name}')
 
     def _end_curr_trial(self):
         """Ends the current trial.
@@ -370,7 +375,10 @@ class Experiment(BaseGroup):
         """
 
         self._curr_ttype._trial_t_end = time.time()
-        self.vid.stop()
+
+        if hasattr(self, 'vid'):
+            self.vid.stop()
+
         self.data.store_attrs_from_curr_trial()
 
     def _pick_iti(self):
@@ -381,7 +389,7 @@ class Experiment(BaseGroup):
 
         iti = pick_time(self.iti, t_args=self.iti_args,
                         t_min=self.iti_min, t_max=self.iti_max)
-        logging.info('\nITI: {iti}s')
+        logging.info('\tITI: {iti}s')
         return iti
 
     def _write_file(self):
