@@ -131,6 +131,7 @@ class TrialType(BaseGroup):
         self.p = p
         self._store_list_in_attribute(events, 'events')
         self.measurements = SimpleNamespace()
+        self.event_temp = SimpleNamespace()
         self.t_end = None
 
     def add_end_time(self, t_end):
@@ -389,7 +390,7 @@ class Experiment(BaseGroup):
 
         iti = pick_time(self.iti, t_args=self.iti_args,
                         t_min=self.iti_min, t_max=self.iti_max)
-        logging.info('\tITI: {iti}s')
+        logging.info(f'\tITI: {iti}s')
         return iti
 
     def _write_file(self):

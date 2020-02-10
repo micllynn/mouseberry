@@ -126,26 +126,27 @@ class Data():
 
         event_keys = curr_trial.events.__dict__.keys()
         for event_key in event_keys:
-            setattr(self.trials.events[ind_trial], event_key,
-                    SimpleNamespace())
+            if event_key.startswith('_') is False:
+                setattr(self.trials.events[ind_trial], event_key,
+                        SimpleNamespace())
 
-            curr_event_in_data = getattr(self.trials.events[ind_trial],
-                                         event_key)
+                curr_event_in_data = getattr(self.trials.events[ind_trial],
+                                             event_key)
 
-            # Log start and end time
-            _logged_t_start = getattr(curr_trial.events, event_key)\
-                ._logged_t_start
-            _logged_t_end = getattr(curr_trial.events, event_key)\
-                ._logged_t_end
-            curr_event_in_data.t_start = _logged_t_start
-            curr_event_in_data.t_end = _logged_t_end
+                # Log start and end time
+                _logged_t_start = getattr(curr_trial.events, event_key)\
+                    ._logged_t_start
+                _logged_t_end = getattr(curr_trial.events, event_key)\
+                    ._logged_t_end
+                curr_event_in_data.t_start = _logged_t_start
+                curr_event_in_data.t_end = _logged_t_end
 
-            # Log all event attributes, like tone frequency and h20 vol.
-            event_attr_keys = curr_event_in_data.__dict__.keys()
-            for event_attr_key in event_attr_keys:
-                event_attr_val = getattr(getattr(
-                    curr_trial.events, event_key), event_attr_key)
-                setattr(curr_event_in_data, event_attr_key, event_attr_val)
+                # Log all event attributes, like tone frequency and h20 vol.
+                event_attr_keys = curr_event_in_data.__dict__.keys()
+                for event_attr_key in event_attr_keys:
+                    event_attr_val = getattr(getattr(
+                        curr_trial.events, event_key), event_attr_key)
+                    setattr(curr_event_in_data, event_attr_key, event_attr_val)
 
     def write_hdf5(self, filename=None):
         """Writes an HDF5 file after an experiment is terminated.
