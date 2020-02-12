@@ -8,7 +8,7 @@ import math
 import time
 import random
 import threading
-import GPIO
+import gpio as GPIO
 from types import SimpleNamespace
 import numpy as np
 

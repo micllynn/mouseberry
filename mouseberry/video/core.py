@@ -7,7 +7,7 @@ class Video():
     def __init__(self, res=(640, 480), framerate=30, preview=True, record=False):
         """
         Creates an object to start a video stream on the local screen.
-        
+
         Parameters
         ---------------
         res : tuple (2d)
