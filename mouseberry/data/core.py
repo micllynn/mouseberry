@@ -44,7 +44,7 @@ class Data():
         self.trials.events[trial_ind]
             .ex_event.t_start
             .ex_event.t_end
-            .ex_trial.ex_parameter
+            .ex_trial.ex_parameter  # all params stored
 
     hdf5 file info
     --------
@@ -160,16 +160,18 @@ class Data():
             trials/t_end[ind_trial]
 
             --- Event storage ---
-            ** 1. Fast indexing way (shared attributes like t_event_start)
+            ** 1. Fast indexing in datasets 
+            # for shared attributes like t_event_start
             trials/events/t_event_start[ind_trial, ind_event]
             trials/events/t_event_end[ind_trial, ind_event]
             trials/events/event_name[ind_trial, ind_event]
 
-            ** 2. POSIX directory way (unique attributes like v_rew, tone_freq)
-            trial0/event0/t_event_start
-            trial0/event0/t_event_end
-            trial0/event0/event_name
-            trial0/event0/_any_attribute_
+            ** 2. POSIX directory storing attributes
+            # for unique attributes like v_rew, tone_freq
+            trial0/event0/.attrs['t_start']
+            trial0/event0/.attrs['t_end']
+            trial0/event0/.attrs['name']
+            trial0/event0/.attrs['_any_attribute_']
 
             --- Measurement storage ---
             trials/measurements/ex_meas/data[ind_trial] : actual data
@@ -193,6 +195,8 @@ class Data():
             events = trials.create_group('events')
             measurements = trials.create_group('measurements')
 
+            n_trials = self.__parent__._n_trials_completed
+            
             # Experiment attributes
             # ------------
             for attr in self.exp.__dict__.keys():
@@ -205,12 +209,14 @@ class Data():
             for name in measurement_names:
                 msment_in_data = getattr(self.trials.measurements, name)
                 msment_in_h5 = measurements.create_group(name)
-                msment_in_h5.create_dataset('t', (self.__parent__.n_trials,),
+                msment_in_h5.create_dataset('t',
+                                            (n_trials,),
                                             dtype=measurement_dtype)
-                msment_in_h5.create_dataset('data', (self.__parent__.n_trials,),
+                msment_in_h5.create_dataset('data',
+                                            (n_trials,),
                                             dtype=measurement_dtype)
 
-                for ind_trial in range(self.__parent__.n_trials):
+                for ind_trial in range(n_trials):
                     msment_in_h5['t'][ind_trial] \
                         = msment_in_data.t[ind_trial]
                     msment_in_h5['data'][ind_trial] \
@@ -227,8 +233,9 @@ class Data():
                                  't_end': 'f'}
             for ind, attr_name in enumerate(trial_attr_names):
                 trials.create_dataset(attr_name,
-                                      (self.__parent__.n_trials,),
-                                      data=getattr(self.trials, attr_name),
+                                      (n_trials,),
+                                      data=getattr(self.trials, attr_name)
+                                      [0:n_trials],
                                       dtype=trial_attr_dtypes[attr_name])
 
             # Init datasets for event attributes: name, t_event_start, etc.
@@ -239,12 +246,12 @@ class Data():
                                  't_end': 'f'}
             for ind, attr_name in enumerate(shared_event_attr_names):
                 events.create_dataset(attr_name,
-                                      (self.__parent__.n_trials, max_n_events),
+                                      (n_trials, max_n_events),
                                       dtype=sh_ev_attr_dtypes[attr_name],
                                       fillvalue=None)
 
             # Fill datasets for event attributes
-            for ind_trial in range(self.__parent__.n_trials):
+            for ind_trial in range(n_trials):
                 f.create_group(f'trial{ind_trial}')
                 _curr_trial = self.trials.events[ind_trial]
                 _curr_event_names = _curr_trial.__dict__.keys()
@@ -261,25 +268,19 @@ class Data():
                         f[f'trials/events/{shared_attr}'][ind_trial, ind_event]\
                             = shared_attr_val
 
-                        # 2. Store POSIX indexing
-                        _curr_h5.create_dataset(shared_attr, (1,),
-                            data=shared_attr_val,
-                            dtype=trial_attr_dtypes[shared_attr])
+                        # 2. Store POSIX-indexed .attr
+                        _curr_h5.attrs[f'{shared_attr}'] = shared_attr_val
 
                     # Consider non-shared attrs for events.
                     _misc_attr_names = list(_curr_event.__dict__.keys())
 
-                    # remove shared attrs
                     for attr in shared_event_attr_names:
-                        _misc_attr_names.remove(attr)
+                        _misc_attr_names.remove(attr)  # rm shared
 
                     for attr in _misc_attr_names:
-                        if attr.beginswith('_') is False:
+                        if attr.startswith('_') is False:
                             nonshared_attr_val = getattr(_curr_event, attr)
-                            _curr_h5.create_dataset(attr, (1,),
-                                                    data=nonshared_attr_val,
-                                                    dtype=infer_hdf5_dtype(
-                                                        nonshared_attr_val))
+                            _curr_h5.attrs[f'{attr}'] = nonshared_attr_val
 
 
 def infer_hdf5_dtype(val):

@@ -1,5 +1,6 @@
 from mouseberry.data.core import Data
 from mouseberry.tools.time import pick_time
+from mouseberry.tools.interrupt import InterruptionHandler
 
 import sys
 import math
@@ -282,18 +283,23 @@ class Experiment(BaseGroup):
         self._parse_run_args(args)
         self._start_experiment()
 
-        for ind_trial, trial in enumerate(range(self.n_trials)):
-            self._start_curr_trial(ind_trial)
+        with InterruptionHandler() as h:
+            for ind_trial, trial in enumerate(range(self.n_trials)):
+                self._start_curr_trial(ind_trial)
 
-            self._curr_ttype._start_all_measurements()
-            self._curr_ttype._plan_event_times()
-            self._curr_ttype._trigger_events_sequentially()
-            self._curr_ttype._stop_all_measurements()
+                self._curr_ttype._start_all_measurements()
+                self._curr_ttype._plan_event_times()
+                self._curr_ttype._trigger_events_sequentially()
+                self._curr_ttype._stop_all_measurements()
 
-            self._end_curr_trial()
+                self._end_curr_trial()
 
-            _iti = self._pick_iti()
-            time.sleep(_iti)
+                _iti = self._pick_iti()
+                time.sleep(_iti)
+
+                if h.interrupted:
+                    logging.info('Stopping experiment...')
+                    break
 
         self._write_file()
 
@@ -328,6 +334,7 @@ class Experiment(BaseGroup):
         self.mouse = input('Enter the mouse ID: ')
         self.data = Data(self)
         self._setup_trial_chooser()
+        self._n_trials_completed = 0
 
     def _setup_trial_chooser(self):
         """Sets up the trial-type probabilities for quick choosing
@@ -381,6 +388,7 @@ class Experiment(BaseGroup):
             self.vid.stop()
 
         self.data.store_attrs_from_curr_trial()
+        self._n_trials_completed = self._curr_n_trial
 
     def _pick_iti(self):
         """
