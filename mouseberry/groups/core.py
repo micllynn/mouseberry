@@ -131,7 +131,7 @@ class TrialType(BaseGroup):
         self.p = p
         self._store_list_in_attribute(events, 'events')
         self.measurements = SimpleNamespace()
-        self.event_temp = SimpleNamespace()
+        self.event_workspace = SimpleNamespace()
         self.t_end = None
 
     def add_end_time(self, t_end):
@@ -194,14 +194,14 @@ class TrialType(BaseGroup):
             list_t_start.append(event._t_start)
 
         inds_sorted = np.argsort(list_t_start)
-        self.events._indsort_by_time = inds_sorted
-        self.events._sort_by_time = [list_event_names[ind]
-                                     for ind in inds_sorted]
+        self.event_workspace._indsort_by_time = inds_sorted
+        self.event_workspace._sort_by_time = [list_event_names[ind]
+                                              for ind in inds_sorted]
 
     def _trigger_events_sequentially(self):
         """ Triggers each events sequentially after sorting.
         """
-        events_by_time = self.events._sort_by_time
+        events_by_time = self.event_workspace._sort_by_time
 
         # Schedule events by time
         # --------------

@@ -4,7 +4,6 @@ Data storage functions for hdf5
 
 import os
 import time
-import weakref
 from types import SimpleNamespace
 
 import numpy as np
@@ -81,7 +80,7 @@ class Data():
         # Simple subattributes for the trial
         # -----------
         subattrs = ['name', 't_start', 't_end']
-        subattrs_dtype = [list, np.float64, np.float64]
+        subattrs_dtype = [object, np.float64, np.float64]
         for ind, subattr in enumerate(subattrs):
             subattr_contents = np.empty((n_trials), dtype=subattrs_dtype[ind])
             setattr(self.trials, subattr, subattr_contents)
@@ -111,42 +110,38 @@ class Data():
 
         # Store measurements
         # ----------------
-        measure_keys = curr_trial.measurements.__dict__.keys()
-        for key in measure_keys:
+        curr_msment_keys = curr_trial.measurements.__dict__.keys()
+        for msment_key in curr_msment_keys:
             _measure_in_data = getattr(self.trials.measurements,
-                                       key)
+                                       msment_key)
             _measure_in_data.t[ind_trial] = getattr(
-                curr_trial.measurements, key).t
+                curr_trial.measurements, msment_key).t
             _measure_in_data.data[ind_trial] = getattr(
-                curr_trial.measurements, key).data
+                curr_trial.measurements, msment_key).data
 
         # Store event starts and stops
         # ------------------
         self.trials.events[ind_trial] = SimpleNamespace()
 
-        event_keys = curr_trial.events.__dict__.keys()
-        for event_key in event_keys:
-            if event_key.startswith('_') is False:
-                setattr(self.trials.events[ind_trial], event_key,
-                        SimpleNamespace())
+        curr_event_keys = curr_trial.events.__dict__.keys()
+        for event_key in curr_event_keys:
+            setattr(self.trials.events[ind_trial], event_key,
+                    SimpleNamespace())
 
-                curr_event_in_data = getattr(self.trials.events[ind_trial],
-                                             event_key)
+            curr_event = getattr(curr_trial.events, event_key)
+            curr_event_in_data = getattr(self.trials.events[ind_trial],
+                                         event_key)
 
-                # Log start and end time
-                _logged_t_start = getattr(curr_trial.events, event_key)\
-                    ._logged_t_start
-                _logged_t_end = getattr(curr_trial.events, event_key)\
-                    ._logged_t_end
-                curr_event_in_data.t_start = _logged_t_start
-                curr_event_in_data.t_end = _logged_t_end
+            # Log all event attributes (eg vol, tone_freq)
+            event_attr_keys = curr_event.__dict__.keys()
+            for event_attr in event_attr_keys:
+                if event_attr.startswith('_') is False:  # exclude _logged*
+                    event_attr_val = getattr(curr_event, event_attr)
+                    setattr(curr_event_in_data, event_attr, event_attr_val)
 
-                # Log all event attributes, like tone frequency and h20 vol.
-                event_attr_keys = curr_event_in_data.__dict__.keys()
-                for event_attr_key in event_attr_keys:
-                    event_attr_val = getattr(getattr(
-                        curr_trial.events, event_key), event_attr_key)
-                    setattr(curr_event_in_data, event_attr_key, event_attr_val)
+            # Log real start and end time
+            curr_event_in_data.t_start = curr_event._logged_t_start
+            curr_event_in_data.t_end = curr_event._logged_t_end
 
     def write_hdf5(self, filename=None):
         """Writes an HDF5 file after an experiment is terminated.
@@ -181,8 +176,9 @@ class Data():
             trials/measurements/ex_meas/t[ind_trial] : time of each datapoint
         """
         if filename is None:
-            filename = str(self.exp.mouse_id) + str(self.exp.t_experiment) \
-                + '.hdf5'
+            filename = (f'mouse={self.exp.mouse_id}__'
+                        f'time={self.exp.t_experiment}'
+                        '.hdf5')
 
         # Precompute the maximum number of events the TrialTypes possess
         max_n_events = 0
@@ -205,13 +201,20 @@ class Data():
             # Measurements
             # --------------
             measurement_names = self.trials.measurements.__dict__.keys()
+            measurement_dtype = h5py.vlen_dtype(np.dtype('int32'))
             for name in measurement_names:
                 msment_in_data = getattr(self.trials.measurements, name)
                 msment_in_h5 = measurements.create_group(name)
-                msment_in_h5.create_dataset('t',
-                                            data=msment_in_data.t)
-                msment_in_h5.create_dataset('data',
-                                            data=msment_in_data.data)
+                msment_in_h5.create_dataset('t', (self.__parent__.n_trials,),
+                                            dtype=measurement_dtype)
+                msment_in_h5.create_dataset('data', (self.__parent__.n_trials,),
+                                            dtype=measurement_dtype)
+
+                for ind_trial in range(self.__parent__.n_trials):
+                    msment_in_h5['t'][ind_trial] \
+                        = msment_in_data.t[ind_trial]
+                    msment_in_h5['data'][ind_trial] \
+                        = msment_in_data.data[ind_trial]
 
             # Trial attributes
             # -----------------
@@ -219,21 +222,25 @@ class Data():
             # Fill datasets for trial attributes: t_start, etc.
             # ex: /trials/name[ind_trial]
             trial_attr_names = ['name', 't_start', 't_end']
-            trial_attr_dtypes = ['S10', 'f', 'f']
+            trial_attr_dtypes = {'name': h5py.string_dtype(encoding='utf-8'),
+                                 't_start': 'f',
+                                 't_end': 'f'}
             for ind, attr_name in enumerate(trial_attr_names):
                 trials.create_dataset(attr_name,
                                       (self.__parent__.n_trials,),
                                       data=getattr(self.trials, attr_name),
-                                      dtype=trial_attr_dtypes[ind])
+                                      dtype=trial_attr_dtypes[attr_name])
 
             # Init datasets for event attributes: name, t_event_start, etc.
             # ex: /trials/events/t_event_start[ind_trial, ind_event]
-            shared_event_attrs = ['t_start', 't_end, name']
-            event_attr_dtypes = ['f', 'f', 'S10']
-            for ind, attr_name in enumerate(shared_event_attrs):
+            shared_event_attr_names = ['name', 't_start', 't_end']
+            sh_ev_attr_dtypes = {'name': h5py.string_dtype(encoding='utf-8'),
+                                 't_start': 'f',
+                                 't_end': 'f'}
+            for ind, attr_name in enumerate(shared_event_attr_names):
                 events.create_dataset(attr_name,
                                       (self.__parent__.n_trials, max_n_events),
-                                      dtype=event_attr_dtypes[ind],
+                                      dtype=sh_ev_attr_dtypes[attr_name],
                                       fillvalue=None)
 
             # Fill datasets for event attributes
@@ -247,23 +254,56 @@ class Data():
                     _curr_h5 = f.create_group(
                         f'trial{ind_trial}/event{ind_event}')
 
-                    for shared_attr in shared_event_attrs:
+                    for shared_attr in shared_event_attr_names:
                         shared_attr_val = getattr(_curr_event, shared_attr)
 
                         # 1. Store fast indexing
-                        f[f'trials/events/{shared_attr}[ind_trial,ind_event]']\
+                        f[f'trials/events/{shared_attr}'][ind_trial, ind_event]\
                             = shared_attr_val
 
                         # 2. Store POSIX indexing
-                        _curr_h5.create_dataset(shared_attr,
-                                                data=shared_attr_val)
+                        _curr_h5.create_dataset(shared_attr, (1,),
+                            data=shared_attr_val,
+                            dtype=trial_attr_dtypes[shared_attr])
 
                     # Consider non-shared attrs for events.
                     _misc_attr_names = list(_curr_event.__dict__.keys())
-                    for attr in shared_event_attrs:
-                        _misc_attr_names.remove(attr)  # Remove shared attrs
+
+                    # remove shared attrs
+                    for attr in shared_event_attr_names:
+                        _misc_attr_names.remove(attr)
 
                     for attr in _misc_attr_names:
-                        nonshared_attr_val = getattr(_curr_event, attr)
-                        _curr_h5.create_dataset(attr,
-                                                data=nonshared_attr_val)
+                        if attr.beginswith('_') is False:
+                            nonshared_attr_val = getattr(_curr_event, attr)
+                            _curr_h5.create_dataset(attr, (1,),
+                                                    data=nonshared_attr_val,
+                                                    dtype=infer_hdf5_dtype(
+                                                        nonshared_attr_val))
+
+
+def infer_hdf5_dtype(val):
+    """Infers a hdf5-compatible dtype from a python value
+
+    Parameters
+    -----------
+    val
+        Any python object, within reason.
+
+    Returns
+    -----------
+    dtype_hdf5
+        String or object to be passed directly to 'dtype' kwarg when
+        calling .create_dataset() in h5py.
+    """
+
+    dtype = str(type(val))
+
+    if 'str' in dtype:
+        return h5py.string_dtype(encoding='utf-8')
+    elif 'float' in dtype:
+        return 'f'
+    elif 'int' in dtype:
+        return 'i8'
+    elif 'numpy' in dtype:
+        return h5py.vlen_dtype(np.dtype('int32'))

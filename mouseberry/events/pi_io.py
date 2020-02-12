@@ -10,7 +10,7 @@ import random
 import threading
 import GPIO
 from types import SimpleNamespace
-
+import numpy as np
 
 def _GPIOSetupHelper(pin, io):
     GPIO.setup(pin, io)
@@ -225,3 +225,4 @@ class Lickometer(GPIOMeasurement):
 
     def on_stop(self):
         self.thread.stop_signal.set()
+        self.thread.measure.join()
