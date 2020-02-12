@@ -140,7 +140,7 @@ class TrialType(BaseGroup):
 
         Parameters
         ---------------
-        end_time : float
+        t_end : float
             Amount of end-time to add after the last event terminates,
             but before the trial stops (s).
         """
@@ -331,6 +331,7 @@ class Experiment(BaseGroup):
         self.mouse = input('Enter the mouse ID: ')
         self.data = Data(self)
         self._setup_trial_chooser()
+
         self._n_trials_completed = 0
 
     def _setup_trial_chooser(self):
