@@ -293,12 +293,9 @@ class Experiment(BaseGroup):
                 self._curr_ttype._stop_all_measurements()
 
                 self._end_curr_trial()
-
-                _iti = self._pick_iti()
-                time.sleep(_iti)
+                self._pick_iti_and_sleep()
 
                 if h.interrupted:
-                    logging.info('Stopping experiment...')
                     break
 
         self._write_file()
@@ -355,7 +352,7 @@ class Experiment(BaseGroup):
         2. Starts video (self.vid.run())
         3. Logs start time of trial (self._curr_ttype._trial_t_start)
         """
-        logging.info(f'Current trial: {ind_trial}')
+        logging.info(f'trial: {ind_trial}')
         self._curr_n_trial = ind_trial
         self._pick_curr_ttype()
 
@@ -372,7 +369,7 @@ class Experiment(BaseGroup):
         _curr_ttype_name = np.random.choice(self._tr_chooser.names,
                                             p=self._tr_chooser.p)
         self._curr_ttype = getattr(self.ttypes, _curr_ttype_name)
-        logging.info(f'\tCurrent trialtype: {self._curr_ttype.name}')
+        logging.info(f'\ttrialtype: {self._curr_ttype.name}')
 
     def _end_curr_trial(self):
         """Ends the current trial.
@@ -390,7 +387,7 @@ class Experiment(BaseGroup):
         self.data.store_attrs_from_curr_trial()
         self._n_trials_completed = self._curr_n_trial
 
-    def _pick_iti(self):
+    def _pick_iti_and_sleep(self):
         """
         Returns an inter-trial value which is either a singular value,
         or which is drawn from a scipy.stats distribution.
@@ -398,8 +395,8 @@ class Experiment(BaseGroup):
 
         iti = pick_time(self.iti, t_args=self.iti_args,
                         t_min=self.iti_min, t_max=self.iti_max)
-        logging.info(f'\tITI: {iti}s')
-        return iti
+        logging.info(f'\tITI: {iti:.2f}s')
+        time.sleep(iti)
 
     def _write_file(self):
         """ Writes an hdf5 file from self.data.
