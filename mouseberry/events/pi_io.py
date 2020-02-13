@@ -92,7 +92,7 @@ class Reward(GPIOEvent):
     def __init__(self, name, pin, rate, volume,
                  t_start, t_start_args=None,
                  t_start_min=-math.inf, t_start_max=math.inf):
-        GPIOEvent.__init__(name, pin)
+        GPIOEvent.__init__(name=name, pin=pin)
         self.t_start = t_start
         self.t_start_args = t_start_args
         self.t_start_min = t_start_min
@@ -149,7 +149,7 @@ class GenericStim(GPIOEvent):
     def __init__(self, name, pin, duration,
                  t_start, t_start_args=None,
                  t_start_min=-math.inf, t_start_max=math.inf):
-        GPIOEvent.__init__(name, pin)
+        GPIOEvent.__init__(name=name, pin=pin)
         self.t_duration = duration
 
         self.t_start = t_start
