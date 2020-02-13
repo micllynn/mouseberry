@@ -1,6 +1,9 @@
-/*
-!*/*.py
-*/#*
-!*/*.gitignore
+**/.DS_Store
+*.hdf5
+*.wav
+**/__pycache__
+**/#*
+**/*~
 
-
+mac_test.py
+mac_test_measurement.py
