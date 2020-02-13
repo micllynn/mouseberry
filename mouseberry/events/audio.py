@@ -19,7 +19,7 @@ class Tone(Event):
         self.filename = f'{self.name}.wav'
 
         # create a waveform called self.name from frequency and tone_length
-        os.system(f'sox -V 0 -r 44100 -n -b 8 -c 2 '
+        os.system(f'sox -V0 -r 44100 -n -b 8 -c 2 '
                   + f'{self.filename} synth {self.tone_length} '
                   + f'sin {self.freq} vol {db}dB')
 
@@ -31,7 +31,7 @@ class Tone(Event):
 
     def on_trigger(self):
         # send the wav file to the sound card
-        os.system(f'play -V 0 -q {self.name}.wav')
+        os.system(f'play -V0 -q {self.name}.wav')
 
     def on_cleanup(self):
         os.system(f'rm {self.name}.wav')

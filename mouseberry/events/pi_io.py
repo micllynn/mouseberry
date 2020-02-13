@@ -32,8 +32,8 @@ class GPIOEvent(Event):
         Pin of the GPIO event
     """
     def __init__(self, name, pin):
-        Event.__init__(name)
         self.pin = pin
+        super().__init__(name=name)
         _GPIOSetupHelper(self.pin, GPIO.OUT)
 
     def __str__(self):
@@ -54,8 +54,8 @@ class GPIOMeasurement(Measurement):
         Sampling rate of the pin (Hz)
     """
     def __init__(self, name, pin, sampling_rate):
-        Measurement.__init__(name, sampling_rate)
         self.pin = pin
+        super().__init__(name=name, sampling_rate=sampling_rate)
         _GPIOSetupHelper(self.pin, GPIO.IN)
 
     def __str__(self):
@@ -92,7 +92,7 @@ class Reward(GPIOEvent):
     def __init__(self, name, pin, rate, volume,
                  t_start, t_start_args=None,
                  t_start_min=-math.inf, t_start_max=math.inf):
-        GPIOEvent.__init__(name=name, pin=pin)
+        super().__init__(name=name, pin=pin)
         self.t_start = t_start
         self.t_start_args = t_start_args
         self.t_start_min = t_start_min
@@ -149,7 +149,7 @@ class GenericStim(GPIOEvent):
     def __init__(self, name, pin, duration,
                  t_start, t_start_args=None,
                  t_start_min=-math.inf, t_start_max=math.inf):
-        GPIOEvent.__init__(name=name, pin=pin)
+        super().__init__(name=name, pin=pin)
         self.t_duration = duration
 
         self.t_start = t_start
@@ -193,7 +193,7 @@ class Lickometer(GPIOMeasurement):
     """
 
     def __init__(self, name, pin, sampling_rate):
-        GPIOMeasurement.__init__(self, name, pin, sampling_rate)
+        super().__init__(name=name, pin=pin, sampling_rate=sampling_rate)
 
     def on_start(self):
         """

@@ -310,15 +310,16 @@ class Experiment(BaseGroup):
 
         # parse the args and store in attrs
         for arg in args:
-            if 'Video' in str(arg.__class__):
+            all_class_names = str(arg.__class__) + str(arg.__class__.__bases__)
+            if 'Video' in all_class_names:
                 self.vid = arg
-            elif 'TrialType' in str(arg.__class__):
+            elif 'TrialType' in all_class_names:
                 setattr(self.ttypes, arg.name, arg)
-            elif 'Measurement' in str(arg.__class__):
+            elif 'Measurement' in all_class_names:
                 setattr(self.measurements, arg.name, arg)
             else:
-                logging.error('An argument to run() is not a Trial, a \
-                Measurement, or a Video. It will be ignored.')
+                logging.error(('An argument to run() is not a TrialType, a '
+                'Measurement, or a Video. It will be ignored.'))
 
         # Now store each Measurement within each TrialType for convenience
         for _ttype in self.ttypes.__dict__.values():

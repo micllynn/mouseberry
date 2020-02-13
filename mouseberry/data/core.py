@@ -5,7 +5,6 @@ Data storage functions for hdf5
 import os
 import time
 from types import SimpleNamespace
-
 import numpy as np
 import h5py
 
@@ -280,7 +279,7 @@ class Data():
                     for attr in _misc_attr_names:
                         if attr.startswith('_') is False:
                             nonshared_attr_val = getattr(_curr_event, attr)
-                            _curr_h5.attrs[f'{attr}'] = nonshared_attr_val
+                            _curr_h5.attrs[f'{attr}'] = str(nonshared_attr_val)
 
 
 def infer_hdf5_dtype(val):
