@@ -253,12 +253,15 @@ class Experiment(BaseGroup):
     """
 
     def __init__(self, n_trials, iti, iti_args=None,
-                 iti_min=-math.inf, iti_max=math.inf):
+                 iti_min=-math.inf, iti_max=math.inf,
+                 exp_cond=''):
         self.n_trials = n_trials
         self.iti = iti
         self.iti_args = iti_args
         self.iti_min = iti_min
         self.iti_max = iti_max
+
+        self.exp_cond = exp_cond
 
     def run(self, *args, log_level=logging.INFO):
         """Main method of Experiment class. Runs the experiment by
@@ -299,6 +302,7 @@ class Experiment(BaseGroup):
                     break
 
         self._write_file()
+        self._cleanup()
 
     def _parse_run_args(self, args):
         """Parses run arguments into TrialType, Measurement or Video.
@@ -319,7 +323,7 @@ class Experiment(BaseGroup):
                 setattr(self.measurements, arg.name, arg)
             else:
                 logging.error(('An argument to run() is not a TrialType, a '
-                'Measurement, or a Video. It will be ignored.'))
+                               'Measurement, or a Video. It will be ignored.'))
 
         # Now store each Measurement within each TrialType for convenience
         for _ttype in self.ttypes.__dict__.values():
@@ -404,3 +408,13 @@ class Experiment(BaseGroup):
         """ Writes an hdf5 file from self.data.
         """
         self.data.write_hdf5()
+
+    def _cleanup(self):
+        """Run cleanup functions for each event at end of exp
+        """
+        for ttype in self.ttypes.__dict__.values():
+            for event in ttype.events.__dict__.values():
+                try:
+                    event.on_cleanup()
+                except:
+                    pass

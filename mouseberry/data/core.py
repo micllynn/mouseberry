@@ -9,6 +9,17 @@ import numpy as np
 import h5py
 
 
+def _prepare_data_folder():
+    """Convenience function to check for existence of data folder
+    and construct it if not present.
+    """
+
+    if os.path.isdir('data'):
+        return
+    else:
+        os.mkdir('data')
+
+
 class Data():
     '''
     Creates an instance of the class Data which will store parameters for
@@ -51,6 +62,8 @@ class Data():
     '''
 
     def __init__(self, parent):
+        _prepare_data_folder()
+
         self.__parent__ = parent
 
         self.exp = SimpleNamespace()
@@ -65,8 +78,9 @@ class Data():
         """
 
         self.exp.mouse_id = self.__parent__.mouse
+        self.exp.cond = self.__parent__.exp_cond
         self.exp.n_trials = self.__parent__.n_trials
-        self.exp.t_experiment = time.strftime("%Y.%b.%d__%H:%M:%S",
+        self.exp.t_experiment = time.strftime("%Y.%b.%d_%H:%M:",
                                               time.localtime(time.time()))
         self.exp.user = os.getlogin()
 
@@ -177,8 +191,10 @@ class Data():
             trials/measurements/ex_meas/t[ind_trial] : time of each datapoint
         """
         if filename is None:
-            filename = (f'mouse={self.exp.mouse_id}__'
-                        f'time={self.exp.t_experiment}'
+            filename = ('data/'
+                        f'mouse{self.exp.mouse_id}'
+                        f'{self.exp.cond}_'
+                        f'{self.exp.t_experiment}'
                         '.hdf5')
 
         # Precompute the maximum number of events the TrialTypes possess
@@ -195,7 +211,7 @@ class Data():
             measurements = trials.create_group('measurements')
 
             n_trials = self.__parent__._n_trials_completed
-            
+
             # Experiment attributes
             # ------------
             for attr in self.exp.__dict__.keys():
