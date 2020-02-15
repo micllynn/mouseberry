@@ -281,7 +281,7 @@ class Experiment(BaseGroup):
             which wil print out basic information about the current
             trial-type, etc.
         """
-        logging.basicConfig(stream=sys.stdout, level=log_level)
+        # logging.basicConfig(stream=sys.stdout, level=log_level)
 
         self._parse_run_args(args)
         self._start_experiment()

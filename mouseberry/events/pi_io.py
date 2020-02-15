@@ -8,12 +8,14 @@ import math
 import time
 import random
 import threading
-import gpio as GPIO
+import RPi.GPIO as gpio
 from types import SimpleNamespace
 import numpy as np
 
 def _GPIOSetupHelper(pin, io):
-    GPIO.setup(pin, io)
+    gpio.setmode(gpio.BCM)
+    gpio.setwarnings(False)
+    gpio.setup(pin, io)
     return
 
 
@@ -34,7 +36,7 @@ class GPIOEvent(Event):
     def __init__(self, name, pin):
         self.pin = pin
         super().__init__(name=name)
-        _GPIOSetupHelper(self.pin, GPIO.OUT)
+        _GPIOSetupHelper(self.pin, gpio.OUT)
 
     def __str__(self):
         return f'GPIOEvent (output) {self.name} \
@@ -56,7 +58,7 @@ class GPIOMeasurement(Measurement):
     def __init__(self, name, pin, sampling_rate):
         self.pin = pin
         super().__init__(name=name, sampling_rate=sampling_rate)
-        _GPIOSetupHelper(self.pin, GPIO.IN)
+        _GPIOSetupHelper(self.pin, gpio.IN)
 
     def __str__(self):
         return f'GPIOMeasurement (input) {self.name} \
@@ -119,9 +121,9 @@ class Reward(GPIOEvent):
         """
         Trigger sequence for the reward
         """
-        GPIO.output(self.pin, True)
+        gpio.output(self.pin, True)
         time.sleep(self.t_duration)
-        GPIO.output(self.pin, False)
+        gpio.output(self.pin, False)
 
 
 class GenericStim(GPIOEvent):
@@ -174,9 +176,9 @@ class GenericStim(GPIOEvent):
         """
         Trigger sequence for the reward
         """
-        GPIO.output(self.pin, True)
+        gpio.output(self.pin, True)
         time.sleep(self.t_duration)
-        GPIO.output(self.pin, False)
+        gpio.output(self.pin, False)
 
 
 class Lickometer(GPIOMeasurement):
@@ -212,7 +214,7 @@ class Lickometer(GPIOMeasurement):
 
     def measure_loop(self):
         while not self.thread.stop_signal.is_set():
-            if GPIO.input(self.pin):
+            if gpio.input(self.pin):
                 # register lick
                 self.data.append(1)
                 self.t.append(time.time())
