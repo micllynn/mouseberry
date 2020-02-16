@@ -79,7 +79,7 @@ class Data():
         self.exp.n_trials = self._parent.n_trials
         # self.exp.t_experiment = time.strftime("%Y.%b.%d_%H:%M:",
         #                                       time.localtime(time.time()))
-        self.exp.t_experiment = self._parent._t_start_exp_fmatted
+        self.exp.t_experiment = self._parent._t_start_exp
         self.exp.user = os.getlogin()
 
     def setup_trial_attrs(self):

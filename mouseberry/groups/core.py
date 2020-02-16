@@ -113,7 +113,7 @@ class BaseGroup(object):
         nspace = getattr(self, str_nspace)
         for item in lst:
             setattr(nspace, item.name, item)
-            self.store_in_child(getattr(nspace, item.name))
+            self._store_in_child(getattr(nspace, item.name))
 
     def _store_in_child(self, child):
         """In a hierarchical namespace, stores the parent class
@@ -213,7 +213,6 @@ class TrialType(BaseGroup):
         for meas_name in list(self.measurements.__dict__):
             meas = getattr(self.measurements, meas_name)
             meas.stop_measurement()
-            meas._norm_meas_times(self._t_start_trial_abs)
 
     def _plan_event_times(self):
         """ Sets event times and then sorts events by occurrence time.
@@ -271,9 +270,6 @@ class TrialType(BaseGroup):
 
             _curr_event.trigger()
 
-            # must normalize event times to the abs. start of the trial:
-            _curr_event._norm_logged_times(self._t_start_trial_abs)
-
         # End time waiting
         # ------------
         if self.t_end is not None:
@@ -313,7 +309,7 @@ class Experiment(BaseGroup):
         self.iti_min = iti_min
         self.iti_max = iti_max
 
-        self.exp_cond = exp_cond        
+        self.exp_cond = exp_cond
 
     def run(self, *args):
         """Main method of Experiment class. Runs the experiment by
@@ -346,6 +342,7 @@ class Experiment(BaseGroup):
                 self._pick_iti_and_sleep()
 
                 if h.interrupted:
+                    self.reporter.info('*** Stopping experiment... *** ')
                     break
 
         self._write_file()
@@ -366,6 +363,7 @@ class Experiment(BaseGroup):
                 self.vid = arg
             elif 'TrialType' in all_class_names:
                 setattr(self.ttypes, arg.name, arg)
+                self._store_in_child(getattr(self.ttypes, arg.name))
             elif 'Measurement' in all_class_names:
                 setattr(self.measurements, arg.name, arg)
             else:
@@ -373,9 +371,9 @@ class Experiment(BaseGroup):
                                'Measurement, or a Video. It will be ignored.'))
 
         # Now store each Measurement within each TrialType for convenience
-        for _ttype in self.ttypes.__dict__.values():
-            for _measurement in self.measurements.__dict__.values():
-                _ttype._store_measurement_from_exp(_measurement)
+        for ttype in self.ttypes.__dict__.values():
+            for measurement in self.measurements.__dict__.values():
+                ttype._store_measurement_from_exp(measurement)
 
     def _start_experiment(self):
         """Starts the experiment.
@@ -395,7 +393,7 @@ class Experiment(BaseGroup):
         t_start_exp_fmatted = time.strftime("%Y.%b.%d_%H:%M",
                                             time.localtime(time.time()))
         self.fname = (f'mouse{self.mouse}'
-                      f'{self.cond}_'
+                      f'{self.exp_cond}_'
                       f'{t_start_exp_fmatted}')
 
     def _setup_trial_chooser(self):
@@ -430,6 +428,9 @@ class Experiment(BaseGroup):
         self._curr_ttype._t_start_trial = time.time() - self._t_start_exp
         self._curr_ttype._t_start_trial_abs = time.time()
 
+        self.reporter.info('events:')
+        self.reporter.tabin()
+
     def _pick_curr_ttype(self):
         """
         Chooses a trialtype to proceed, based on occurence
@@ -455,6 +456,7 @@ class Experiment(BaseGroup):
 
         self.data.store_attrs_from_curr_trial()
         self._n_trials_completed = self._curr_n_trial
+        self.reporter.tabout()
 
     def _pick_iti_and_sleep(self):
         """

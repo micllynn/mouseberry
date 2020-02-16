@@ -53,17 +53,24 @@ class Event(object):
             An optional dictionary of arguments to pass to .on_trigger() in
             the child class.
         """
+        reporter = self._parent._parent.reporter  # get from Experiment() inst.
+        t_trial_start = self._parent._parent._curr_ttype._t_start_trial_abs
+
         try:
-            self._logged_t_start = time.time()
+            self._logged_t_start = time.time() - t_trial_start
+            reporter.info((f'{self.name} started at '
+                           f'{self._logged_t_start:.2f}s'))
+
             self.on_trigger(**kwargs)
-            self._logged_t_end = time.time()
-            logging.debug(f'{self.name} ' +
-                          f'triggered at {self._logged_t_start:.2f}s ' +
-                          f'and ended at {self._logged_t_end:.2f}s.')
+
+            self._logged_t_end = time.time() - t_trial_start
+            reporter.info((f'{self.name} ended at '
+                           f'{self._logged_t_end:.2f}s'))
+
         except AttributeError:
-            logging.error(f'Cannot call trigger() method in Event. ' +
-                          f'.on_trigger() method in {self.__class__} ' +
-                          f'is not set.')
+            reporter.error(f'Cannot call trigger() method in Event. ' +
+                           f'.on_trigger() method in {self.__class__} ' +
+                           f'is not set.')
 
     def set_times(self, **kwargs):
         """
@@ -77,13 +84,14 @@ class Event(object):
             An optional dictionary of arguments to pass to ._set_t_start()
             and ._set_t_end() in the child class.
         """
+        reporter = self._parent._parent.reporter
         try:
             self._t_start = self.set_t_start(**kwargs)
             self._t_end = self.set_t_end(**kwargs)
         except AttributeError:
-            logging.error((f"Cannot call set_temp_times() method in Event. "
-                           f"._set_t_start() and _set_t_end() "
-                           f"{self.__class__} is not set."))
+            reporter.error((f"Cannot call set_temp_times() method in Event. "
+                            f"._set_t_start() and _set_t_end() "
+                            f"{self.__class__} is not set."))
 
     def cleanup(self, **kwargs):
         """
@@ -101,20 +109,6 @@ class Event(object):
             self.on_cleanup(**kwargs)
         except AttributeError:
             pass
-
-    def _norm_logged_times(self, t_start_trial):
-        """Normalize logged start and end times to the trial's start time.
-
-        Typically called by the parent Trial class after calling .on_trigger().
-
-        Parameters
-        -----------
-        t_start_trial : float
-            Trial start time (s)
-        """
-
-        self._logged_t_start -= t_start_trial
-        self._logged_t_end -= t_start_trial
 
 
 class Measurement(object):
@@ -161,11 +155,16 @@ class Measurement(object):
         - ._measure() must be threaded and must log events to
         child.data and child.t
         """
+        parent_exp = self._parent._parent
+
+        self.reporter = parent_exp.reporter
+        self.t_start_trial = parent_exp._curr_ttype._t_start_trial_abs
+
         try:
-            self.on_start(**kwargs)
+            self.on_start()
         except AttributeError:
-            logging.error((f'Cannot call start_measurement() in Measurement. '
-                           '.on_start() in {self.__class__} is not set.'))
+            self.reporter.error((f'Cannot call start_measurement() in Measurement. '
+                                 '.on_start() in {self.__class__} is not set.'))
 
     def stop_measurement(self, **kwargs):
         """Stop measurement.
@@ -175,19 +174,5 @@ class Measurement(object):
         try:
             self.on_stop(**kwargs)
         except AttributeError:
-            logging.error(f'Cannot call stop_measurement() in Measurement. \
-            .on_stop() in {self.__class__} is not set.')
-
-    def _norm_meas_times(self, t_start_trial):
-        """Normalize measurement times to the trial's start time.
-
-        Typically called by the parent Trial class during
-        ._stop_all_measurements().
-
-        Parameters
-        -----------
-        t_start_trial : float
-            Trial start time (s)
-        """
-
-        self.t = np.array(self.t, dtype=np.float64) - t_start_trial
+            self.reporter.error((f'Cannot call stop_measurement() in Measurement.'
+                                 '.on_stop() in {self.__class__} is not set.'))
