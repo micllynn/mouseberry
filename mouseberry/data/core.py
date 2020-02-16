@@ -64,7 +64,7 @@ class Data():
     def __init__(self, parent):
         _prepare_data_folder()
 
-        self.__parent__ = parent
+        self._parent = parent
 
         self.exp = SimpleNamespace()
         self.trials = SimpleNamespace()
@@ -77,9 +77,9 @@ class Data():
         class instance as attributes within Data.
         """
 
-        self.exp.mouse_id = self.__parent__.mouse
-        self.exp.cond = self.__parent__.exp_cond
-        self.exp.n_trials = self.__parent__.n_trials
+        self.exp.mouse_id = self._parent.mouse
+        self.exp.cond = self._parent.exp_cond
+        self.exp.n_trials = self._parent.n_trials
         self.exp.t_experiment = time.strftime("%Y.%b.%d_%H:%M:",
                                               time.localtime(time.time()))
         self.exp.user = os.getlogin()
@@ -88,7 +88,7 @@ class Data():
         """Setups trial_attrs, including measurement and event attributes, and
         the total number of trials.
         """
-        n_trials = self.__parent__.n_trials
+        n_trials = self._parent.n_trials
 
         # Simple subattributes for the trial
         # -----------
@@ -102,7 +102,7 @@ class Data():
         # ---------
         self.trials.events = np.empty(n_trials, dtype=object)
         self.trials.measurements = SimpleNamespace()
-        for measurement_name in self.__parent__.measurements.__dict__.keys():
+        for measurement_name in self._parent.measurements.__dict__.keys():
             setattr(self.trials.measurements, measurement_name,
                     SimpleNamespace(t=np.empty((n_trials), dtype=np.ndarray),
                                     data=np.empty((n_trials),
@@ -112,14 +112,14 @@ class Data():
         """Takes all measurements and events stored temporarily in
         _curr_trial of the experiment class, and stores them in data.
         """
-        curr_trial = self.__parent__._curr_ttype
-        ind_trial = self.__parent__._curr_n_trial
+        curr_trial = self._parent._curr_ttype
+        ind_trial = self._parent._curr_n_trial
 
         # Store simple subattributes for the trial
         # -----------------
         self.trials.name[ind_trial] = curr_trial.name
-        self.trials.t_start[ind_trial] = curr_trial._trial_t_start
-        self.trials.t_end[ind_trial] = curr_trial._trial_t_end
+        self.trials.t_start[ind_trial] = curr_trial._t_start_trial
+        self.trials.t_end[ind_trial] = curr_trial._t_end_trial
 
         # Store measurements
         # ----------------
@@ -199,7 +199,7 @@ class Data():
 
         # Precompute the maximum number of events the TrialTypes possess
         max_n_events = 0
-        for ttype in self.__parent__.ttypes.__dict__.values():
+        for ttype in self._parent.ttypes.__dict__.values():
             _n_events = len(ttype.events.__dict__.keys())
             if _n_events > max_n_events:
                 max_n_events = _n_events
@@ -210,7 +210,7 @@ class Data():
             events = trials.create_group('events')
             measurements = trials.create_group('measurements')
 
-            n_trials = self.__parent__._n_trials_completed
+            n_trials = self._parent._n_trials_completed
 
             # Experiment attributes
             # ------------
@@ -220,7 +220,7 @@ class Data():
             # Measurements
             # --------------
             measurement_names = self.trials.measurements.__dict__.keys()
-            measurement_dtype = h5py.vlen_dtype(np.dtype('int32'))
+            measurement_dtype = h5py.vlen_dtype(np.dtype('float64'))
             for name in measurement_names:
                 msment_in_data = getattr(self.trials.measurements, name)
                 msment_in_h5 = measurements.create_group(name)

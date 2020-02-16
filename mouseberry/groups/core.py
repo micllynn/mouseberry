@@ -166,7 +166,7 @@ class TrialType(BaseGroup):
         for meas_name in list(self.measurements.__dict__):
             meas = getattr(self.measurements, meas_name)
             meas.stop_measurement()
-            meas._norm_meas_times(self._t_start_trial)
+            meas._norm_meas_times(self._t_start_trial_abs)
 
     def _plan_event_times(self):
         """ Sets event times and then sorts events by occurrence time.
@@ -209,7 +209,7 @@ class TrialType(BaseGroup):
         # Schedule events by time
         # --------------
         t_scheduled = np.ones(len(events_by_time))\
-            * self._t_start_trial
+            * self._t_start_trial_abs
         for ind, event_name in enumerate(events_by_time):
             _curr_event = getattr(self.events, event_name)
             t_scheduled[ind] += _curr_event._t_start
@@ -224,8 +224,8 @@ class TrialType(BaseGroup):
 
             _curr_event.trigger()
 
-            # must normalize event times to the start of the trial:
-            _curr_event._norm_logged_times(self._t_start_trial)
+            # must normalize event times to the abs. start of the trial:
+            _curr_event._norm_logged_times(self._t_start_trial_abs)
 
         # End time waiting
         # ------------
@@ -371,6 +371,7 @@ class Experiment(BaseGroup):
             self.vid.run()
 
         self._curr_ttype._t_start_trial = time.time() - self._t_start_exp
+        self._curr_ttype._t_start_trial_abs = time.time()
 
     def _pick_curr_ttype(self):
         """

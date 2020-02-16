@@ -3,6 +3,7 @@ of a Trial class instance.
 """
 import logging
 import time
+import numpy as np
 
 
 class Event(object):
@@ -189,4 +190,4 @@ class Measurement(object):
             Trial start time (s)
         """
 
-        self.t -= t_start_trial
+        self.t = np.array(self.t, dtype=np.float64) - t_start_trial
