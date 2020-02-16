@@ -143,7 +143,7 @@ class Measurement(object):
         - Method must define a set of steps to occur in order to stop
         a measurement.
         - Method must include a way to stop the measurement thread.
-        - It is called by .stop_measurement() in the base class at the 
+        - It is called by .stop_measurement() in the base class at the
         end of the trial.
     """
 

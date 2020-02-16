@@ -8,16 +8,7 @@ from types import SimpleNamespace
 import numpy as np
 import h5py
 
-
-def _prepare_data_folder():
-    """Convenience function to check for existence of data folder
-    and construct it if not present.
-    """
-
-    if os.path.isdir('data'):
-        return
-    else:
-        os.mkdir('data')
+from mouseberry.tools.filesys import prepare_folder
 
 
 class Data():
@@ -61,10 +52,16 @@ class Data():
     exp : group
     '''
 
-    def __init__(self, parent):
-        _prepare_data_folder()
-
+    def __init__(self, parent, folder_name='data'):
         self._parent = parent
+        assert hasattr(self._parent, 'fname'), ('The parent Experiment class '
+                                                'instance must have a .fname '
+                                                'attribute before initializing '
+                                                'Data(). Set it with '
+                                                'exp._set_fname().')
+
+        prepare_folder(folder_name)
+        self.fname = os.path.join(folder_name, (self._parent.fname + '.hdf5'))
 
         self.exp = SimpleNamespace()
         self.trials = SimpleNamespace()
@@ -80,8 +77,9 @@ class Data():
         self.exp.mouse_id = self._parent.mouse
         self.exp.cond = self._parent.exp_cond
         self.exp.n_trials = self._parent.n_trials
-        self.exp.t_experiment = time.strftime("%Y.%b.%d_%H:%M:",
-                                              time.localtime(time.time()))
+        # self.exp.t_experiment = time.strftime("%Y.%b.%d_%H:%M:",
+        #                                       time.localtime(time.time()))
+        self.exp.t_experiment = self._parent._t_start_exp_fmatted
         self.exp.user = os.getlogin()
 
     def setup_trial_attrs(self):
@@ -156,7 +154,7 @@ class Data():
             curr_event_in_data.t_start = curr_event._logged_t_start
             curr_event_in_data.t_end = curr_event._logged_t_end
 
-    def write_hdf5(self, filename=None):
+    def write_hdf5(self):
         """Writes an HDF5 file after an experiment is terminated.
 
         Notes on file storage
@@ -173,7 +171,7 @@ class Data():
             trials/t_end[ind_trial]
 
             --- Event storage ---
-            ** 1. Fast indexing in datasets 
+            ** 1. Fast indexing in datasets
             # for shared attributes like t_event_start
             trials/events/t_event_start[ind_trial, ind_event]
             trials/events/t_event_end[ind_trial, ind_event]
@@ -190,12 +188,6 @@ class Data():
             trials/measurements/ex_meas/data[ind_trial] : actual data
             trials/measurements/ex_meas/t[ind_trial] : time of each datapoint
         """
-        if filename is None:
-            filename = ('data/'
-                        f'mouse{self.exp.mouse_id}'
-                        f'{self.exp.cond}_'
-                        f'{self.exp.t_experiment}'
-                        '.hdf5')
 
         # Precompute the maximum number of events the TrialTypes possess
         max_n_events = 0
@@ -205,7 +197,7 @@ class Data():
                 max_n_events = _n_events
 
         # Store the file
-        with h5py.File(filename, 'w') as f:
+        with h5py.File(self.fname, 'w') as f:
             trials = f.create_group('trials')
             events = trials.create_group('events')
             measurements = trials.create_group('measurements')

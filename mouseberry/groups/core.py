@@ -78,6 +78,13 @@ exp.run(l_trial, r_trial)
 
 
 class BaseGroup(object):
+    """Base group for TrialType and Experiment.
+
+    Defines methods for storing lists of class instances
+    within a SimpleNamespace (_store_list_in_attribute),
+    and for storing the parent class instanec within each
+    child class instance (_store_parent_in_child)
+    """
     def _store_list_in_attribute(self, lst, str_nspace):
         """Convenience function for storing elements of a list
         in a named SimpleNamespace within the object instance.
@@ -94,17 +101,54 @@ class BaseGroup(object):
 
         Example
         ----------
-        >> cls_instance = BaseGroup()
+        >> business = BaseGroup()
         >> ex_list = [Event(name='john'), Event(name='fred')]
-        >> BaseGroup._store_list_in_attribute(ex_list, 'employees')
+        >> business.store_list_in_attribute(ex_list, 'employees')
 
-        Now BaseGroup consists of:
-            BaseGroup.employees.john
-            BaseGroup.employees.fred
+        Now business consists of:
+            business.employees.john
+            business.employees.fred
         """
         setattr(self, str_nspace, SimpleNamespace())
+        nspace = getattr(self, str_nspace)
         for item in lst:
-            setattr(getattr(self, str_nspace), item.name, item)
+            setattr(nspace, item.name, item)
+            self.store_in_child(getattr(nspace, item.name))
+
+    def _store_in_child(self, child):
+        """In a hierarchical namespace, stores the parent class
+        (self) within the child class as child._parent.
+
+        Allows for multi-level calls between complex nspaces.
+
+        Parameters
+        -----------
+        child : Class instance
+            Child class instance to store parent instance in.
+
+        Example
+        ------------
+        >> world = BaseGroup()
+        >> world.person1 = SimpleNamespace(name='sue', animal='pony', age=5)
+        >> world.person2 = SimpleNamespace(name='fred', animal='tiger', age=5)
+        >> world._store_in_child(world.person1)
+
+        Now person1 consists of:
+            person1.name : sue
+            person1.animal : 'pony'
+            person1.age : 5
+            person1._parent : world
+
+        We can conveniently access the rest of world through person1._parent:
+            person1._parent.person2.name : fred
+            ... etc...
+
+        This is highly convenient in hierarchical namespaces where stored
+        elements may want to access attributes, class instances, etc. from
+        their parents.
+
+        """
+        setattr(child, '_parent', self)
 
 
 class TrialType(BaseGroup):
@@ -130,10 +174,12 @@ class TrialType(BaseGroup):
     def __init__(self, name, p, events):
         self.name = name
         self.p = p
+        self.t_end = None
+
+        # initialize namespaces for events, measurements, and a workspace
         self._store_list_in_attribute(events, 'events')
         self.measurements = SimpleNamespace()
         self.event_workspace = SimpleNamespace()
-        self.t_end = None
 
     def add_end_time(self, t_end):
         """Adds a given amount of time to the end of the trial.
@@ -151,6 +197,7 @@ class TrialType(BaseGroup):
         within self.measurements.
         """
         setattr(self.measurements, measurement.name, measurement)
+        self._store_in_child(getattr(self.measurements, measurement.name))
 
     def _start_all_measurements(self):
         """ Starts all measurement threads.
@@ -266,7 +313,7 @@ class Experiment(BaseGroup):
         self.iti_min = iti_min
         self.iti_max = iti_max
 
-        self.exp_cond = exp_cond
+        self.exp_cond = exp_cond        
 
     def run(self, *args):
         """Main method of Experiment class. Runs the experiment by
@@ -334,12 +381,22 @@ class Experiment(BaseGroup):
         """Starts the experiment.
         """
         self.mouse = input('Enter the mouse ID: ')
-        self.data = Data(self)
-        self._setup_trial_chooser()
-        self._reporter = Reporter()
 
-        self._n_trials_completed = 0
         self._t_start_exp = time.time()
+        self._set_fname()
+
+        self.data = Data(self)
+        self.reporter = Reporter(self)
+
+        self._setup_trial_chooser()
+        self._n_trials_completed = 0
+
+    def _set_fname(self):
+        t_start_exp_fmatted = time.strftime("%Y.%b.%d_%H:%M",
+                                            time.localtime(time.time()))
+        self.fname = (f'mouse{self.mouse}'
+                      f'{self.cond}_'
+                      f'{t_start_exp_fmatted}')
 
     def _setup_trial_chooser(self):
         """Sets up the trial-type probabilities for quick choosing
@@ -361,8 +418,8 @@ class Experiment(BaseGroup):
         2. Starts video (self.vid.run())
         3. Logs start time of trial (self._curr_ttype._t_start_trial)
         """
-        self._reporter.rep(f'trial: {ind_trial}')
-        self._reporter.lvlup()
+        self.reporter.info(f'trial: {ind_trial}')
+        self.reporter.tabin()
 
         self._curr_n_trial = ind_trial
         self._pick_curr_ttype()
@@ -381,7 +438,7 @@ class Experiment(BaseGroup):
         _curr_ttype_name = np.random.choice(self._tr_chooser.names,
                                             p=self._tr_chooser.p)
         self._curr_ttype = getattr(self.ttypes, _curr_ttype_name)
-        self._reporter.rep(f'trialtype: {self._curr_ttype.name}')
+        self.reporter.info(f'trialtype: {self._curr_ttype.name}')
 
     def _end_curr_trial(self):
         """Ends the current trial.
@@ -408,8 +465,8 @@ class Experiment(BaseGroup):
         iti = pick_time(self.iti, t_args=self.iti_args,
                         t_min=self.iti_min, t_max=self.iti_max)
 
-        self._reporter.rep(f'ITI: {iti:.2f}s')
-        self._reporter.lvldown()
+        self.reporter.info(f'ITI: {iti:.2f}s')
+        self.reporter.tabout()
 
         time.sleep(iti)
 
