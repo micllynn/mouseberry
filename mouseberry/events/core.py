@@ -56,11 +56,13 @@ class Event(object):
             self._logged_t_start = time.time()
             self.on_trigger(**kwargs)
             self._logged_t_end = time.time()
-            logging.debug(f'{self.name} triggered at {self._logged_t_start:.2f}s \
-            and ended at {self._logged_t_end:.2f}s.')
+            logging.debug(f'{self.name} ' +
+                          f'triggered at {self._logged_t_start:.2f}s ' +
+                          f'and ended at {self._logged_t_end:.2f}s.')
         except AttributeError:
-            logging.error(f'Cannot call trigger() method in Event. \
-            .on_trigger() method in {self.__class__} is not set.')
+            logging.error(f'Cannot call trigger() method in Event. ' +
+                          f'.on_trigger() method in {self.__class__} ' +
+                          f'is not set.')
 
     def set_times(self, **kwargs):
         """
@@ -98,6 +100,20 @@ class Event(object):
             self.on_cleanup(**kwargs)
         except AttributeError:
             pass
+
+    def _norm_logged_times(self, t_start_trial):
+        """Normalize logged start and end times to the trial's start time.
+
+        Typically called by the parent Trial class after calling .on_trigger().
+
+        Parameters
+        -----------
+        t_start_trial : float
+            Trial start time (s)
+        """
+
+        self._logged_t_start -= t_start_trial
+        self._logged_t_end -= t_start_trial
 
 
 class Measurement(object):
@@ -160,3 +176,17 @@ class Measurement(object):
         except AttributeError:
             logging.error(f'Cannot call stop_measurement() in Measurement. \
             .on_stop() in {self.__class__} is not set.')
+
+    def _norm_meas_times(self, t_start_trial):
+        """Normalize measurement times to the trial's start time.
+
+        Typically called by the parent Trial class during
+        ._stop_all_measurements().
+
+        Parameters
+        -----------
+        t_start_trial : float
+            Trial start time (s)
+        """
+
+        self.t -= t_start_trial

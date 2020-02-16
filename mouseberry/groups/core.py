@@ -1,8 +1,8 @@
 from mouseberry.data.core import Data
 from mouseberry.tools.time import pick_time
 from mouseberry.tools.interrupt import InterruptionHandler
+from mouseberry.tools.reporting import Reporter
 
-import sys
 import math
 import time
 import logging
@@ -160,11 +160,13 @@ class TrialType(BaseGroup):
             meas.start_measurement()
 
     def _stop_all_measurements(self):
-        """ Stops all measurement threads.
+        """ Stops all measurement threads and aligns their
+        times to the start of the trial.
         """
         for meas_name in list(self.measurements.__dict__):
             meas = getattr(self.measurements, meas_name)
             meas.stop_measurement()
+            meas._norm_meas_times(self._t_start_trial)
 
     def _plan_event_times(self):
         """ Sets event times and then sorts events by occurrence time.
@@ -207,7 +209,7 @@ class TrialType(BaseGroup):
         # Schedule events by time
         # --------------
         t_scheduled = np.ones(len(events_by_time))\
-            * self._trial_t_start
+            * self._t_start_trial
         for ind, event_name in enumerate(events_by_time):
             _curr_event = getattr(self.events, event_name)
             t_scheduled[ind] += _curr_event._t_start
@@ -221,6 +223,9 @@ class TrialType(BaseGroup):
                 time.sleep(0.0001)
 
             _curr_event.trigger()
+
+            # must normalize event times to the start of the trial:
+            _curr_event._norm_logged_times(self._t_start_trial)
 
         # End time waiting
         # ------------
@@ -263,7 +268,7 @@ class Experiment(BaseGroup):
 
         self.exp_cond = exp_cond
 
-    def run(self, *args, log_level=logging.INFO):
+    def run(self, *args):
         """Main method of Experiment class. Runs the experiment by
         dynamically picking trialtypes, with on-the-fly event scheduling
         and triggering within each trialtype, as well as threaded background
@@ -276,12 +281,7 @@ class Experiment(BaseGroup):
         args : TrialType, Measurement or Video class instances
             The trialtypes, measurements and video instances used to run
             the current trial.
-        log_level : logging level
-            The level of logging to enable. By default, this is logging.INFO,
-            which wil print out basic information about the current
-            trial-type, etc.
         """
-        # logging.basicConfig(stream=sys.stdout, level=log_level)
 
         self._parse_run_args(args)
         self._start_experiment()
@@ -336,8 +336,10 @@ class Experiment(BaseGroup):
         self.mouse = input('Enter the mouse ID: ')
         self.data = Data(self)
         self._setup_trial_chooser()
+        self._reporter = Reporter()
 
         self._n_trials_completed = 0
+        self._t_start_exp = time.time()
 
     def _setup_trial_chooser(self):
         """Sets up the trial-type probabilities for quick choosing
@@ -354,18 +356,21 @@ class Experiment(BaseGroup):
     def _start_curr_trial(self, ind_trial):
         """Initializes a trial.
 
+        0. Reports current trial number and increments reporter level
         1. Picks a current trialtype (self.pick_curr_ttype())
         2. Starts video (self.vid.run())
-        3. Logs start time of trial (self._curr_ttype._trial_t_start)
+        3. Logs start time of trial (self._curr_ttype._t_start_trial)
         """
-        logging.info(f'trial: {ind_trial}')
+        self._reporter.rep(f'trial: {ind_trial}')
+        self._reporter.lvlup()
+
         self._curr_n_trial = ind_trial
         self._pick_curr_ttype()
 
         if hasattr(self, 'vid'):
             self.vid.run()
 
-        self._curr_ttype._trial_t_start = time.time()
+        self._curr_ttype._t_start_trial = time.time() - self._t_start_exp
 
     def _pick_curr_ttype(self):
         """
@@ -375,17 +380,17 @@ class Experiment(BaseGroup):
         _curr_ttype_name = np.random.choice(self._tr_chooser.names,
                                             p=self._tr_chooser.p)
         self._curr_ttype = getattr(self.ttypes, _curr_ttype_name)
-        logging.info(f'\ttrialtype: {self._curr_ttype.name}')
+        self._reporter.rep(f'trialtype: {self._curr_ttype.name}')
 
     def _end_curr_trial(self):
         """Ends the current trial.
 
-        1. Logs end time of trial (self._curr_ttype._trial_t_end)
+        1. Logs end time of trial (self._curr_ttype._t_end_trial)
         2. Stops video (self.vid.stop())
         3. Stores measurements (self.data.store_attrs_from_curr_trial())
         """
 
-        self._curr_ttype._trial_t_end = time.time()
+        self._curr_ttype._t_end_trial = time.time() - self._t_start_exp
 
         if hasattr(self, 'vid'):
             self.vid.stop()
@@ -401,7 +406,10 @@ class Experiment(BaseGroup):
 
         iti = pick_time(self.iti, t_args=self.iti_args,
                         t_min=self.iti_min, t_max=self.iti_max)
-        logging.info(f'\tITI: {iti:.2f}s')
+
+        self._reporter.rep(f'ITI: {iti:.2f}s')
+        self._reporter.lvldown()
+
         time.sleep(iti)
 
     def _write_file(self):
@@ -416,5 +424,5 @@ class Experiment(BaseGroup):
             for event in ttype.events.__dict__.values():
                 try:
                     event.on_cleanup()
-                except:
+                except AttributeError:
                     pass
