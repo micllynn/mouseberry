@@ -87,10 +87,15 @@ class Event(object):
         reporter = self._parent._parent.reporter
         try:
             self._t_start = self.set_t_start(**kwargs)
+        except AttributeError:
+            reporter.error((f"Cannot call set_temp_times() method in Event. "
+                            f"._set_t_start(). "
+                            f"{self.__class__} is not set."))
+        try:
             self._t_end = self.set_t_end(**kwargs)
         except AttributeError:
             reporter.error((f"Cannot call set_temp_times() method in Event. "
-                            f"._set_t_start() and _set_t_end() "
+                            f"._set_t_end() "
                             f"{self.__class__} is not set."))
 
     def cleanup(self, **kwargs):

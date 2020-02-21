@@ -117,6 +117,18 @@ class Reporter(object):
         msg_complete = self.append_tabs(msg)
         self.lgr.debug(msg_complete)
 
+    def error(self, msg):
+        """Reports debug string at a particular indent level through a
+        unified logger which prints to just the file by default.
+
+        Parameters
+        --------------
+        msg : str
+            A message to be printed.
+        """
+        msg_complete = self.append_tabs(msg)
+        self.lgr.error(msg_complete)        
+
     def append_tabs(self, msg):
         """Convenience function to append the correct number of tabs,
         base on self.tab_lvl, to the current message.

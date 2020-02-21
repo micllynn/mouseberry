@@ -165,6 +165,7 @@ class RewardStepper(Event):
                  t_start_min=-math.inf, t_start_max=math.inf):
 
         super().__init__(name=name)
+        gpio.setmode(gpio.BCM)        
 
         # Initialize all the pins
         pins = [pin_motor_off, pin_step, pin_dir, pin_not_at_lim]
@@ -201,12 +202,6 @@ class RewardStepper(Event):
         _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
                              t_min=self.t_start_min, t_max=self.t_start_max)
         return _t_start
-
-    def set_t_end(self):
-        """Returns a t_end for this trial
-        """
-        t_end = self._t_start + self.t_duration
-        return t_end
 
     def on_trigger(self):
         """
@@ -304,7 +299,7 @@ class Lickometer(GPIOMeasurement):
         Lickrates and associated times are stored in
         self._licks and self._t_licks.
         """
-        assert hasattr(self.t_start_trial), \
+        assert hasattr(self, 't_start_trial'), \
             ('.t_start_trial must be set before'
              '.on_start() can be called in the'
              'Lickometer class. This is typically'
