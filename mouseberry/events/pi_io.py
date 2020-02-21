@@ -65,9 +65,9 @@ class GPIOMeasurement(Measurement):
         associated to pin {self.pin}'
 
 
-class Reward(GPIOEvent):
-    """Create an object which delivers liquid rewards based on
-    a particular GPIO pin.
+class RewardSolenoid(GPIOEvent):
+    """Create an object which delivers liquid rewards through
+    a solenoid based on a particular GPIO pin.
 
     Parameters
     --------------
@@ -124,6 +124,107 @@ class Reward(GPIOEvent):
         gpio.output(self.pin, True)
         time.sleep(self.t_duration)
         gpio.output(self.pin, False)
+
+
+class RewardStepper(Event):
+    """Delivers reward volumes through a stepper motor connected
+    to the raspberry pi.
+
+    Parameters
+    --------------
+    name : str
+        Name of event.
+    pin_motor_off : int
+        GPIO output pin to disable motor.
+    pin_step : int
+        GPIO output pin to step the motor.
+    pin_dir : int
+        GPIO output pin to choose direction of the motor
+    pin_not_at_lim : int
+        GPIO input pin to poll whether motor is at its limit.
+
+    rate : float
+        Delivery rate of liquid (steps / uL)
+    volume : float
+        Total volume of water to dispense (uL)
+
+    t_start : float or sp.stats distribution
+        Delivery time of the reward (seconds)
+    t_start_args : dict, optional
+        A dictionary of arguments for the distribution.
+        Passed to sp.stats.rvs
+    t_start_min : float
+        Minimum t_start allowed.
+    t_start_max : float
+        Maximum t_start allowed.
+    """
+
+    def __init__(self, name, pin_motor_off, pin_step, pin_dir,
+                 pin_not_at_lim, rate, volume,
+                 t_start, t_start_args=None,
+                 t_start_min=-math.inf, t_start_max=math.inf):
+
+        super().__init__(name=name)
+
+        # Initialize all the pins
+        pins = [pin_motor_off, pin_step, pin_dir, pin_not_at_lim]
+        pin_attrnames = ['pin_motor_off', 'pin_step',
+                         'pin_dir', 'pin_not_at_lim']
+        pin_io_status = [gpio.OUT, gpio.OUT, gpio.OUT, gpio.IN]
+        pin_init_status = [1, 0, 0, None]
+        pin_pull = [None, None, None, gpio.PUD_UP]
+
+        for ind, pin in enumerate(pins):
+            setattr(self, pin_attrnames[ind], pin)
+            pin_gpio = getattr(self, pin_attrnames[ind])
+
+            if pin_io_status[ind] == gpio.OUT:
+                gpio.setup(pin_gpio, pin_io_status[ind],
+                           initial=pin_init_status[ind])
+            elif pin_io_status[ind] == gpio.IN:
+                gpio.setup(pin_gpio, pin_io_status[ind],
+                           pull_up_down=pin_pull[ind])
+
+        # Initialize start time, etc.
+        self.t_start = t_start
+        self.t_start_args = t_start_args
+        self.t_start_min = t_start_min
+        self.t_start_max = t_start_max
+
+        self.rate = rate
+        self.volume = volume
+        self.n_steps = int(self.volume * self.rate)
+
+    def set_t_start(self):
+        """Returns a t_start for this trial
+        """
+        _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
+                             t_min=self.t_start_min, t_max=self.t_start_max)
+        return _t_start
+
+    def set_t_end(self):
+        """Returns a t_end for this trial
+        """
+        t_end = self._t_start + self.t_duration
+        return t_end
+
+    def on_trigger(self):
+        """
+        Trigger sequence for the reward
+        """
+        if gpio.input(self.pin_not_at_lim):
+            gpio.output(self.pin_motor_off, 0)
+            gpio.output(self.pin_dir, 1)
+
+            for step in range(self.n_steps):
+                gpio.output(self.pin_step, 1)
+                time.sleep(0.001)
+                gpio.output(self.pin_step, 0)
+                time.sleep(0.001)
+
+            gpio.output(self.pin_motor_off, 1)
+        else:
+            print('Motor is at its limit.')
 
 
 class GenericStim(GPIOEvent):
