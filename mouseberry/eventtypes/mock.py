@@ -1,12 +1,10 @@
-from mouseberry.events.core import (Event, Measurement)
+from mouseberry.groups.core import (Event, Measurement)
 
 from types import SimpleNamespace
 import threading
 import time
 import random
-import sys, os
-
-import numpy as np
+import os
 
 
 class MeasurementMock(Measurement):
@@ -56,24 +54,20 @@ class MeasurementMock(Measurement):
 class ToneMacTester(Event):
     """Event creating a pure tone of a certain length.
     """
-    def __init__(self, name, t_start, t_end, freq):
+    def __init__(self, name, t_start, t_dur, freq):
         Event.__init__(self, name=name)
         self.t_start = t_start
-        self.t_end = t_end
+        self.t_dur = t_dur
         self.freq = freq
-        self.tone_length = t_end - t_start
         self._filename = f'{self.name}.wav'
 
         # create a waveform called self.name from frequency and tone_length
         os.system(f'sox -V0 -r 44100 -n -b 8 -c 2 '
-                  + f'{self._filename} synth {self.tone_length} '
+                  + f'{self._filename} synth {self.t_dur} '
                   + f'sin {self.freq} vol -10dB')
 
-    def set_t_start(self):
+    def on_assign_tstart(self):
         return self.t_start
-
-    def set_t_end(self):
-        return self.t_end
 
     def on_trigger(self):
         # send the wav file to the sound card

@@ -1,16 +1,15 @@
 '''
 Functions to control all GPIO-related inputs and outputs.
 '''
-from mouseberry.events.core import Event, Measurement
+from mouseberry.groups.core import Event, Measurement
 from mouseberry.tools.time import pick_time
 
 import math
 import time
-import random
 import threading
 import RPi.GPIO as gpio
 from types import SimpleNamespace
-import numpy as np
+
 
 def _GPIOSetupHelper(pin, io):
     gpio.setmode(gpio.BCM)
@@ -39,8 +38,8 @@ class GPIOEvent(Event):
         _GPIOSetupHelper(self.pin, gpio.OUT)
 
     def __str__(self):
-        return f'GPIOEvent (output) {self.name} \
-        associated to pin {self.pin}'
+        return (f'GPIOEvent (output) {self.name} '
+                f'associated to pin {self.pin}')
 
 
 class GPIOMeasurement(Measurement):
@@ -104,18 +103,12 @@ class RewardSolenoid(GPIOEvent):
         self.volume = volume
         self.t_duration = self.volume / self.rate
 
-    def set_t_start(self):
+    def on_assign_tstart(self):
         """Returns a t_start for this trial
         """
-        _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
-                             t_min=self.t_start_min, t_max=self.t_start_max)
-        return _t_start
-
-    def set_t_end(self):
-        """Returns a t_end for this trial
-        """
-        t_end = self._t_start + self.t_duration
-        return t_end
+        t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
+                            t_min=self.t_start_min, t_max=self.t_start_max)
+        return t_start
 
     def on_trigger(self):
         """
@@ -165,7 +158,7 @@ class RewardStepper(Event):
                  t_start_min=-math.inf, t_start_max=math.inf):
 
         super().__init__(name=name)
-        gpio.setmode(gpio.BCM)        
+        gpio.setmode(gpio.BCM)
 
         # Initialize all the pins
         pins = [pin_motor_off, pin_step, pin_dir, pin_not_at_lim]
@@ -196,12 +189,12 @@ class RewardStepper(Event):
         self.volume = volume
         self.n_steps = int(self.volume * self.rate)
 
-    def set_t_start(self):
+    def on_assign_tstart(self):
         """Returns a t_start for this trial
         """
-        _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
-                             t_min=self.t_start_min, t_max=self.t_start_max)
-        return _t_start
+        t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
+                            t_min=self.t_start_min, t_max=self.t_start_max)
+        return t_start
 
     def on_trigger(self):
         """
@@ -232,7 +225,6 @@ class GenericStim(GPIOEvent):
         Pin of the GPIO measurement
     duration : float
         Total duration of the stimulus (seconds).
-
     t_start : float or sp.stats distribution
         Start time of the stim.
     t_start_args : dict, optional
@@ -255,18 +247,12 @@ class GenericStim(GPIOEvent):
         self.t_start_min = t_start_min
         self.t_start_max = t_start_max
 
-    def set_t_start(self):
+    def on_assign_tstart(self):
         """Returns a t_start for this trial
         """
-        _t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
-                             t_min=self.t_start_min, t_max=self.t_start_max)
-        return _t_start
-
-    def set_t_end(self):
-        """Returns a t_end for this trial
-        """
-        t_end = self._t_start + self.t_duration
-        return t_end
+        t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
+                            t_min=self.t_start_min, t_max=self.t_start_max)
+        return t_start
 
     def on_trigger(self):
         """

@@ -9,73 +9,6 @@ import logging
 import numpy as np
 from types import SimpleNamespace
 
-"""Import status
-import mb
-from mouseberry.events.audio import Tone
-"""
-
-'''Ver1: Classical conditioning
-
-tone_sm = Tone(name='tone_sm', f=10000, t_start=4, t_end=5, freq=4000)
-tone_lg = Tone(name='tone_lg', f=5000, t_start=4, t_end=5)
-rew_sm = Reward(name='rew_sm', pin=5, vol=4, rate=40,
-            t_start=np.random.norm(loc=6, scale=1),
-            t_start_lims=[5, 10])
-rew_lg = Reward(name='rew_lm', pin=5, vol=10, rate=40,
-            t_start=np.random.norm(loc=6, scale=1),
-            t_start_lims=[5, 10])
-
-trial_sm = mb.TrialType(name='trial_sm', p=0.5, events=[tone_sm, rew_sm])
-trial_sm.add_end_time(4)
-trial_lg = mb.TrialType(name='trial_lg', p=0.5, events=[tone_lg, rew_lg])
-trial_lg.add_end_time(4)
-
-vid = Video(preview=True, record=False)
-lick_measure = Lickometer(name='lick_measure', pin=1, sampling_rate=200)
-
-exp = mb.Experiment(n_trials=200, iti=np.random.exp, iti_args={'scale':1/20})
-exp.run(trial_sm, trial_lg, vid, lick_measure)
-'''
-
-
-'''Ver1.5 Classical conditioning with airpuff and/or opto
-tone_lg = Tone(name='tone_lg', f=5000, t_start=4, t_end=5)
-
-
-trial_lg_airpuff = Trial(name='trial_lgrew_airpuff', p=0.5)
-
-trial_lg_airpuff.add_rew(name='rew_lg', pin=5, vol=10, rate=40,
-                    t_start=np.random.norm(loc=6, scale=1))
-trial_lg_airpuff.add_stim(name='airpuff', pin=8, t_start=5,
-t_end=5.5)
-trial_lg_airpuff.add_end_time(4)
-'''
-
-
-'''Ver2: Operant conditioning
-exp = Experiment(n_trials=200, iti=np.random.exp(scale=1/20))
-exp.add_video()
-exp.add_measurement(name='l_lickport', pin=5, sampling_rate=200)
-exp.add_measurement(name='r_lickport', pin=6, sampling_rate=200)
-
-l_trial = Trial(p=0.5)
-l_trial.add_tone(name='high_tone', f=1000, t_start=4, t_end=5)
-l_trial.add_rew(name='rew_large', pin=5, vol=4, rate=40,
-                t_start=np.random.norm(loc=6, scale=1),
-                cond=l_trial.l_lickport.mean(t0=l_trial.high_tone.t_start,
-                                         t1=l_trial.high_tone.t_end)>4)
-
-r_trial = Trial(p=0.5)
-r_trial.add_tone(name='high_tone', f=1000, t_start=4, t_end=5)
-r_trial.add_rew(name='rew_large', pin=5, vol=4, rate=40,
-                t_start=np.random.norm(loc=6, scale=1),
-                cond=r_trial.l_lickport.mean(t0=r_trial.high_tone.t_start,
-                                         t1=r_trial.high_tone.t_end)>4)
-
-exp.run(l_trial, r_trial)
-# OR have an exp._magic_gather() function before exp.run()
-'''
-
 
 class BaseGroup(object):
     """Base group for TrialType and Experiment.
@@ -151,6 +84,172 @@ class BaseGroup(object):
         setattr(child, '_parent', self)
 
 
+class Event(object):
+    """
+    Base class for events.
+
+    Parameters
+    ----------
+    name : str
+        Unique name for the event. Used for data storage.
+
+    Notes on child class methods
+    ---------
+    .on_init(): optional
+        - Method can define a set of steps to occur right when the trial
+        starts, to initialize conditions for the event before they occur
+        - Called by the .trial_start() at the start of the trial.
+    .on_assign_tstart(): required
+        - Method must return a start time for the event this trial.
+        - It is called by .trial_start() at the start of the trial.
+    .on_trigger(): required
+        - Method must define a set of steps to occur at the precise time
+        when the event is triggered.
+        - Called by .trigger() in the base Event class at the time of
+        the event.
+    .on_cleanup(): optional
+        - Method can define a set of steps to occur when the experiment ends,
+        to clean up variables, etc.
+        - Called by .cleanup() in the base Event class at the end of the trial.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def trigger(self):
+        """
+        Wrapper around .on_trigger() method in child class.
+
+        At the scheduled time of the event,
+        triggers the event, and logs real start (._logged_t_start)
+        and real end (._logged_t_end) times as attributes.
+
+        Called by the experiment at the time of the event.
+        """
+        reporter = self._parent._parent.reporter  # get from Experiment() inst.
+        t_trial_start = self._parent._parent._curr_ttype._t_start_trial_abs
+
+        try:
+            self._logged_t_start = time.time() - t_trial_start
+            reporter.info((f'{self.name} started at '
+                           f'{self._logged_t_start:.2f}s'))
+
+            self.on_trigger()
+
+            self._logged_t_end = time.time() - t_trial_start
+            reporter.info((f'{self.name} ended at '
+                           f'{self._logged_t_end:.2f}s'))
+
+        except AttributeError:
+            reporter.error(f'Cannot call trigger() method in Event. ' +
+                           f'.on_trigger() method in {self.__class__} ' +
+                           f'is not set.')
+
+    def trial_start(self):
+        """
+        Wrapper around .on_init() and .on_assign_tstart() methods
+        in child classes.
+
+        Called by experiment at the time of the trial start.
+        """
+        reporter = self._parent._parent.reporter
+
+        try:
+            self.on_init()
+        except AttributeError:
+            pass
+
+        try:
+            self._t_start = self.on_assign_tstart()
+        except AttributeError:
+            reporter.error((f"Cannot call .on_assign_tstart() method "
+                            f"in Event class. "
+                            f"Please set it in {self.__class__} child class."))
+
+    def cleanup(self):
+        """
+        Wrapper around .on_cleanup() method of the child class.
+
+        Called by the experiment when it is over.
+        """
+        try:
+            self.on_cleanup()
+        except AttributeError:
+            pass
+
+
+class Measurement(object):
+    """
+    Base class for measurements.
+
+    Parameters
+    ----------
+    name : str
+        Unique name for the Measurement. Used for data storage.
+    sampling_rate : float
+        Sampling rate (Hz)
+
+    Notes on child class methods
+    ---------
+    .on_start(): required
+        - Method must define a set of steps to occur in order to start
+        a measurement
+        - Method must include threading to run in background, and must
+        include on-the-fly logging of measurements to:
+            A. child.data (storing actual measurement data)
+            B. child.t (storing measurement times)
+        - It is called by .start_measurement() in the base class at the
+        start of the trial.
+    .on_stop() : required
+        - Method must define a set of steps to occur in order to stop
+        a measurement.
+        - Method must include a way to stop the measurement thread.
+        - It is called by .stop_measurement() in the base class at the
+        end of the trial.
+    """
+
+    def __init__(self, name, sampling_rate):
+        self.name = name
+        self.sampling_rate = sampling_rate
+
+    def __str__(self):
+        return self.name
+
+    def start_measurement(self, **kwargs):
+        """Initialize measurement.
+
+        - In child class, calls ._start_measurement().
+        - ._measure() must be threaded and must log events to
+        child.data and child.t
+        """
+        parent_exp = self._parent._parent
+
+        self.reporter = parent_exp.reporter
+        self.t_start_trial = parent_exp._curr_ttype._t_start_trial_abs
+
+        try:
+            self.on_start()
+        except AttributeError:
+            self.reporter.error((f'Cannot call start_measurement() '
+                                 f'in Measurement class. .on_start() method '
+                                 f'in {self.__class__} is not set.'))
+
+    def stop_measurement(self, **kwargs):
+        """Stop measurement.
+
+        In child class, calls ._stop_measurement().
+        """
+        try:
+            self.on_stop(**kwargs)
+        except AttributeError:
+            self.reporter.error((f'Cannot call stop_measurement() '
+                                 f'in Measurement class. .on_stop() method '
+                                 f'in {self.__class__} is not set.'))
+
+
 class TrialType(BaseGroup):
     """
     Define a trial-type which is used as a generator for
@@ -214,24 +313,24 @@ class TrialType(BaseGroup):
             meas = getattr(self.measurements, meas_name)
             meas.stop_measurement()
 
-    def _plan_event_times(self):
-        """ Sets event times and then sorts events by occurrence time.
-        Stores self.events._sort_by_time, a list of event names
-        sorted by starttime.
-        """
-        self._set_all_event_times()
-        self._sort_events_by_time()
+    def _setup_events(self):
+        """Performs start-of-trial setup for each event in the trial.
 
-    def _set_all_event_times(self):
-        """ Sets the start/end times for all events within this TrialType()
-        imstance.
+        For each event, the .trial_start() method is invoked, which
+        calls the following user-defined class methods:
+            1. Sets the initial parameters for this
+            particular trial (.on_init()); and
+            2. Assigns a start time (.on_assign_tstart())
+                * Set time is located in ._t_start.
 
-        Set times are located in self.events.event._t_start and ._t_end.
+        The events are then sorted by time (self._sort_events_by_time).
         """
         list_event_names = list(self.events.__dict__)
         for event_name in list_event_names:
             event = getattr(self.events, event_name)
-            event.set_times()
+            event.trial_start()
+
+        self._sort_events_by_time()
 
     def _sort_events_by_time(self):
         """ Sorts events sequentially based on start time.
@@ -334,7 +433,7 @@ class Experiment(BaseGroup):
                 self._start_curr_trial(ind_trial)
 
                 self._curr_ttype._start_all_measurements()
-                self._curr_ttype._plan_event_times()
+                self._curr_ttype._setup_events()
                 self._curr_ttype._trigger_events_sequentially()
                 self._curr_ttype._stop_all_measurements()
 
