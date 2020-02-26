@@ -214,6 +214,32 @@ class RewardStepper(Event):
         else:
             print('Motor is at its limit.')
 
+    def refill(self):
+        gpio.output(self.pin_motor_off, 0)
+        gpio.output(self.pin_dir, 0)
+
+        while gpio.input(self.pin_not_at_lim):
+            for step in range(9600):
+                gpio.output(self.pin_step, 1)
+                time.sleep(0.001)
+                gpio.output(self.pin_step, 0)
+                time.sleep(0.001)
+
+        gpio.output(self.pin_motor_off, 1)
+
+    def empty(self):
+        gpio.output(self.pin_motor_off, 0)
+        gpio.output(self.pin_dir, 1)
+
+        while gpio.input(self.pin_not_at_lim):
+            for step in range(9600):
+                gpio.output(self.pin_step, 1)
+                time.sleep(0.001)
+                gpio.output(self.pin_step, 0)
+                time.sleep(0.001)
+
+        gpio.output(self.pin_motor_off, 1)
+
 
 class GenericStim(GPIOEvent):
     """Create an object which triggers a generic stimulus output
