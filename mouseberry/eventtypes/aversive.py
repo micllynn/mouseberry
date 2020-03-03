@@ -7,6 +7,8 @@ from mouseberry.groups.core import Event
 import paramiko
 import threading
 
+__all__ = ['Looming']
+
 
 class Looming(Event):
     """Event for visual looming stimulus.

@@ -2,6 +2,8 @@ import threading
 import picamera
 from types import SimpleNamespace
 
+__all__ = ['Video']
+
 class Video():
 
     def __init__(self, res=(640, 480), framerate=30, preview=True, record=False):

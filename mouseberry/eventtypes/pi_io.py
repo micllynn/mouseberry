@@ -10,6 +10,8 @@ import threading
 import RPi.GPIO as gpio
 from types import SimpleNamespace
 
+__all__ = ['RewardSolenoid', 'RewardStepper', 'GenericStim', 'Lickometer']
+
 
 def _GPIOSetupHelper(pin, io):
     gpio.setmode(gpio.BCM)

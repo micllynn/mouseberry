@@ -9,6 +9,8 @@ import logging
 import numpy as np
 from types import SimpleNamespace
 
+__all__ = ['Event', 'Measurement', 'TrialType', 'Experiment']
+
 
 class BaseGroup(object):
     """Base group for TrialType and Experiment.

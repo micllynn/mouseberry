@@ -5,6 +5,8 @@ Classes for generating audio stimuli.
 import os
 from mouseberry.groups.core import Event
 
+__all__ = ['Tone']
+
 
 def _prepare_temp_folder():
     """Prepares temp folder for sound storage
