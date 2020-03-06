@@ -1,7 +1,7 @@
 import math
-import time
 
-__all__ = ['pick_time']
+__all__ = ['pick_time', 'TimeDist']
+
 
 def pick_time(t, t_args=None, t_min=-math.inf, t_max=math.inf):
     """
@@ -40,3 +40,38 @@ def pick_time(t, t_args=None, t_min=-math.inf, t_max=math.inf):
     else:
         raise ValueError("t must be either a float, int "
                          "or scipy.stats distribution instance")
+
+
+class TimeDist(object):
+    """
+    Contains a scipy.stats distribution, parameters and limits
+    from which random values are drawn for event start times.
+
+    Parameters
+    -------------
+    t_dist : scipy.stats distribution
+        A distribution which generates times when the .rvs method
+        is called on it (in units of seconds).
+    t_args : dict
+        A dictionary of arguments to pass to t.rvs
+    t_min : float (optional)
+        Minimum time which can be returned.
+    t_max : float (optional)
+        Maximum time which can be returned.
+    """
+    def __init__(self, t_dist, t_args,
+                 t_min=-math.inf, t_max=math.inf):
+        self.t_dist = t_dist
+        self.t_args = t_args
+        self.t_min = t_min
+        self.t_max = t_max
+
+    def __call__(self):
+        """Draws a random time value from self.t_dist, using
+        self.t_args as arguments and with bounds of
+        self.t_min and self.t_max.
+        """
+        _t_picked = self.t_min-1
+        while _t_picked <= self.t_min or _t_picked >= self.t_max:
+            _t_picked = self.t_dist.rvs(size=1, **self.t_args)[0]
+        return _t_picked

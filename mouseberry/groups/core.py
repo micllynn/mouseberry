@@ -385,31 +385,16 @@ class Experiment(BaseGroup):
     ------------
     n_trials : int
         Number of trials for the experiment.
-    iti : float or scipy.stats distribution.
-        Either a single inter-trial interval value (sec), or
-        a distribution from sp.dist.
-        If a distribution is given, iti_args must also be passed
-        (see below.)
-    iti_args : dict (optional)
-        If iti is a distribution, iti_args contains a dictionary of
-        values to pass to the distribution in order to draw single
-        values of iti's.
-        i.e. a single value is drawn using iti.rvs(**iti_args).
-    iti_min : float
-        Minimum value permitted for the drawn iti's
-    iti_max : float
-        Maximum value permitted for the drawn iti's
+    iti : float or TimeDist class instance.
+        Specifies the ITI. If float, a single ITI
+        is always assigned. If a TimeDist class instance,
+        the TimeDist parameters are used to assign stochastic
+        ITIs.
     """
 
-    def __init__(self, n_trials, iti, iti_args=None,
-                 iti_min=-math.inf, iti_max=math.inf,
-                 exp_cond=''):
+    def __init__(self, n_trials, iti, exp_cond=''):
         self.n_trials = n_trials
         self.iti = iti
-        self.iti_args = iti_args
-        self.iti_min = iti_min
-        self.iti_max = iti_max
-
         self.exp_cond = exp_cond
 
     def run(self, *args):
@@ -524,7 +509,7 @@ class Experiment(BaseGroup):
         self._pick_curr_ttype()
 
         if hasattr(self, 'vid'):
-            self.vid.run()
+            self.vid.run(trial=ind_trial)
 
         self._curr_ttype._t_start_trial = time.time() - self._t_start_exp
         self._curr_ttype._t_start_trial_abs = time.time()
@@ -564,9 +549,10 @@ class Experiment(BaseGroup):
         Returns an inter-trial value which is either a singular value,
         or which is drawn from a scipy.stats distribution.
         """
-
-        iti = pick_time(self.iti, t_args=self.iti_args,
-                        t_min=self.iti_min, t_max=self.iti_max)
+        try:
+            iti = self.iti()  # TimeDist class
+        except TypeError:
+            iti = self.iti  # float or int class
 
         self.reporter.info(f'ITI: {iti:.2f}s')
         self.reporter.tabout()

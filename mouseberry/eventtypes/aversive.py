@@ -62,4 +62,7 @@ class Looming(Event):
         self.thread.start()
 
     def on_assign_tstart(self):
-        return self.t_start
+        try:
+            return self.t_start()  # TimeDist class
+        except TypeError:
+            return self.t_start  # float or int class

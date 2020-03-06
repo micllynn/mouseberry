@@ -93,14 +93,9 @@ class RewardSolenoid(GPIOEvent):
     """
 
     def __init__(self, name, pin, rate, volume,
-                 t_start, t_start_args=None,
-                 t_start_min=-math.inf, t_start_max=math.inf):
+                 t_start):
         super().__init__(name=name, pin=pin)
         self.t_start = t_start
-        self.t_start_args = t_start_args
-        self.t_start_min = t_start_min
-        self.t_start_max = t_start_max
-
         self.rate = rate
         self.volume = volume
         self.t_duration = self.volume / self.rate
@@ -108,9 +103,10 @@ class RewardSolenoid(GPIOEvent):
     def on_assign_tstart(self):
         """Returns a t_start for this trial
         """
-        t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
-                            t_min=self.t_start_min, t_max=self.t_start_max)
-        return t_start
+        try:
+            return self.t_start()  # TimeDist class
+        except TypeError:
+            return self.t_start  # float or int class
 
     def on_trigger(self):
         """
@@ -156,9 +152,7 @@ class RewardStepper(Event):
 
     def __init__(self, name, pin_motor_off, pin_step, pin_dir,
                  pin_not_at_lim, rate, volume,
-                 t_start, t_start_args=None,
-                 t_start_min=-math.inf, t_start_max=math.inf):
-
+                 t_start):
         super().__init__(name=name)
         gpio.setmode(gpio.BCM)
 
@@ -194,9 +188,10 @@ class RewardStepper(Event):
     def on_assign_tstart(self):
         """Returns a t_start for this trial
         """
-        t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
-                            t_min=self.t_start_min, t_max=self.t_start_max)
-        return t_start
+        try:
+            return self.t_start()  # TimeDist class
+        except TypeError:
+            return self.t_start  # float or int class
 
     def on_trigger(self):
         """
@@ -264,23 +259,18 @@ class GenericStim(GPIOEvent):
         Maximum t_start allowed.
     """
 
-    def __init__(self, name, pin, duration,
-                 t_start, t_start_args=None,
-                 t_start_min=-math.inf, t_start_max=math.inf):
+    def __init__(self, name, pin, duration, t_start):
         super().__init__(name=name, pin=pin)
         self.t_duration = duration
-
         self.t_start = t_start
-        self.t_start_args = t_start_args
-        self.t_start_min = t_start_min
-        self.t_start_max = t_start_max
 
     def on_assign_tstart(self):
         """Returns a t_start for this trial
         """
-        t_start = pick_time(t=self.t_start, t_args=self.t_start_args,
-                            t_min=self.t_start_min, t_max=self.t_start_max)
-        return t_start
+        try:
+            return self.t_start()  # TimeDist class
+        except TypeError:
+            return self.t_start  # float or int class
 
     def on_trigger(self):
         """

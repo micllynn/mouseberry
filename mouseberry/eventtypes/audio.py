@@ -49,7 +49,10 @@ class Tone(Event):
                   + f'sin {self.freq} vol {db}dB')
 
     def on_assign_tstart(self):
-        return self.t_start
+        try:
+            return self.t_start()  # TimeDist class
+        except TypeError:
+            return self.t_start  # float or int class
 
     def on_trigger(self):
         # send the wav file to the sound card
