@@ -81,6 +81,7 @@ class Data():
         #                                       time.localtime(time.time()))
         self.exp.t_experiment = self._parent._t_start_exp
         self.exp.user = os.getlogin()
+        self.exp.sysinfo = os.uname()
 
     def setup_trial_attrs(self):
         """Setups trial_attrs, including measurement and event attributes, and
@@ -173,9 +174,9 @@ class Data():
             --- Event storage ---
             ** 1. Fast indexing in datasets
             # for shared attributes like t_event_start
-            trials/events/t_event_start[ind_trial, ind_event]
-            trials/events/t_event_end[ind_trial, ind_event]
-            trials/events/event_name[ind_trial, ind_event]
+            trials/events/t_start[ind_trial, ind_event]
+            trials/events/t_end[ind_trial, ind_event]
+            trials/events/name[ind_trial, ind_event]
 
             ** 2. POSIX directory storing attributes
             # for unique attributes like v_rew, tone_freq

@@ -80,16 +80,8 @@ class RewardSolenoid(GPIOEvent):
         Delivery rate of liquid (uL/sec)
     volume : float
         Total volume of water to dispense (uL)
-
-    t_start : float or sp.stats distribution
+    t_start : float or TimeDist instance
         Delivery time of the reward (seconds)
-    t_start_args : dict, optional
-        A dictionary of arguments for the distribution.
-        Passed to sp.stats.rvs
-    t_start_min : float
-        Minimum t_start allowed.
-    t_start_max : float
-        Maximum t_start allowed.
     """
 
     def __init__(self, name, pin, rate, volume,
@@ -139,20 +131,12 @@ class RewardStepper(Event):
     volume : float
         Total volume of water to dispense (uL)
 
-    t_start : float or sp.stats distribution
+    t_start : float or TimeDist instance
         Delivery time of the reward (seconds)
-    t_start_args : dict, optional
-        A dictionary of arguments for the distribution.
-        Passed to sp.stats.rvs
-    t_start_min : float
-        Minimum t_start allowed.
-    t_start_max : float
-        Maximum t_start allowed.
     """
 
     def __init__(self, name, pin_motor_off, pin_step, pin_dir,
-                 pin_not_at_lim, rate, volume,
-                 t_start):
+                 pin_not_at_lim, rate, volume, t_start):
         super().__init__(name=name)
         gpio.setmode(gpio.BCM)
 
@@ -177,10 +161,6 @@ class RewardStepper(Event):
 
         # Initialize start time, etc.
         self.t_start = t_start
-        self.t_start_args = t_start_args
-        self.t_start_min = t_start_min
-        self.t_start_max = t_start_max
-
         self.rate = rate
         self.volume = volume
         self.n_steps = int(self.volume * self.rate)
@@ -248,15 +228,8 @@ class GenericStim(GPIOEvent):
         Pin of the GPIO measurement
     duration : float
         Total duration of the stimulus (seconds).
-    t_start : float or sp.stats distribution
+    t_start : float or TimeDist instance
         Start time of the stim.
-    t_start_args : dict, optional
-        A dictionary of arguments for the distribution.
-        Passed to sp.stats.rvs
-    t_start_min : float
-        Minimum t_start allowed.
-    t_start_max : float
-        Maximum t_start allowed.
     """
 
     def __init__(self, name, pin, duration, t_start):

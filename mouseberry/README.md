@@ -61,7 +61,7 @@ import mouseberry as mb
 licks = mb.Lickometer(name='lickometer', pin=5, sampling_rate=200)
 vid = mb.Video(framerate=30)
 
-# Define the tones
+# Define the tone events
 tone_low = mb.Tone(name='tone_low', t_start=1, t_dur=5, freq=2000)
 tone_high = mb.Tone(name='tone_high', t_start=1, t_dur=5, freq=10000)
 
@@ -128,7 +128,7 @@ By default, videos are streamed to the display attached to the Raspberry Pi.
 However, it is also possible to save videos corresponding to each Trial:
 
 ```python
-vid = mb.Video(preview=True, record=True)
+vid = mb.Video(record=True)
 ```
 
 The corresponding videos are saved under the folder `vids`.
@@ -182,14 +182,193 @@ exp = mb.Experiment(n_trials=10, iti=iti_dist)
 By default, mouseberry stores all data in a logical, hierarchical data structure
 which is dynamically adjusted based on the contents of the trial-types and events.
 
-All data is stored in the `/data` folder, and can be opened by the `h5py` package or
-a similar package to read hdf5 data.
+All data is stored in the `/data` folder, and can be opened by the `h5py` package in
+Python, or by any similar package in other langugages to read hdf5 files:
+
+```python
+>> import h5py
+>> f = h5py.File('test.hdf5', 'r')
+```
+
+The .hdf5 data format consists of groups, a named file-system-like hierarchy, and datasets,
+which store array data. Both are employed by mouseberry.
 
 ## Experiment attributes
+The experimental attributes are stored as .attrs, a dict of attributes, in the
+root group (`/`)
 
+```python
+>> f.attrs.keys()  # prints all attribute keys available for the experiment
+>> f.attrs['mouse_id']  # prints the mouse id
+>> f.attrs['sysinfo']  # prints a full POSIX system information summary (machine, etc.)
+```
 
-# Creating custom classes
+## Trial attributes
+The first group of the .hdf5 hierarchy is `trials`. This contains groups for the
+`events` and `measurements` classes. It also contains datasets that hold general
+information about each trial:
 
-## Events
+```python
+>> f['trials'].keys()  # prints all keys within trials
+>> f['trials/name'][:]  # names of each trialtype
+>> f['trials/t_start'][:]  # start times of each trial, in seconds
+>> f['trials/t_end'][:]  # end times of each trial, in seconds
+```
 
 ## Measurements
+Measurements are stored in `trials/measurements`. Each measurement has its own named
+group, and each group has both `t` and `data` datasets.
+
+```python
+>> f['trials/measurements'].keys()  # prints the keys for all acquired measurements
+>> f['trials/measurements/licks/t'][0]  # All measurement times (sec) in trial 0
+>> f['trials/measurements/licks/data'][3]  # All measurement values in trial 3
+```
+
+## Events
+Basic event data is stored in `trials/events` in an array-like datastructure ([trial, event]).
+
+```python
+>> f['trials/events/name'][0, 1]  # Prints name of trial 0's event 1
+>> f['trials/events/t_start'][3, 0]  # Prints start time (sec) of trial 3's event 0.
+>> f['trials/events/t_end'][0, 0]  # Prints end time (sec) of trial 0's event 0.
+```
+
+More complete event data, including any class instance attributes present that
+trial, are stored in a group directory structure in the root directory:
+
+```python
+>> f['trial0/event1'].attrs.keys()  # Get all attribute keys for trial 0, event 1
+>> f['trial0/event1'].attrs['freq']  # Gets the frequency of the tone
+>> f['trial0/event1'].attrs['t_start']  # Gets the start time of the event (sec)
+```
+
+# Creating custom classes
+Mouseberry is designed to be hackable. Custom classes can be easily defined as follows, and
+they will be automatically processed and stored correctly by the rest of the package.
+
+## Events
+Event subclasses must inherit from the Event base class in `mouseberry.groups.core`, and
+must have the following methods defined: 
+
+- `on_init`: optional
+  - Method can define a set of steps to occur right when the trial
+  starts, to initialize conditions for the event before they occur
+- `on_assign_tstart`: required
+  - Method must return a start time for the event this trial. 
+  - Method is called at the start of the trial, but after `.on_init()`.
+- `on_trigger` : required
+  - Method must define a set of steps to occur at the precise time
+  when the event is triggered.
+- `on_cleanup` : optional
+  - Method can define a set of steps to occur when the experiment ends,
+  to clean up variables, etc.
+  
+A simple example:
+
+```python
+from mouseberry.groups.core import Event
+import random
+import time
+
+
+class MockEvent(Event):
+	"""An event which prints both a string and a random number
+	from 0 to 100, with a 2 second delay between each print.
+	
+	Parameters
+	--------------
+	name : str
+		Name of event
+	t_start : float
+		Start time of the event
+	string_to_say : str
+		String to print out
+	"""
+
+	def __init__(self, name, t_start, string_to_say):
+		super().__init__(name=name)  # Super call for Event init
+		self.t_start = t_start
+		self.str = string_to_say
+	
+	def on_init(self):
+		# pick random number from 1 to 100
+		self.num = int(random.random()*100)
+		
+	def on_assign_tstart(self):
+		return self.t_start
+			
+	def on_trigger(self):
+		print(f'A string: {self.str}')
+		time.sleep(2)
+		print(f'A number: {self.num}')
+		
+	def on_cleanup(self):
+		print('Cleaned up.')
+```
+
+Note that the dynamic attributes `str` and `num` will be automatically stored as .attrs
+in the hdf5 file without any extra work.
+
+## Measurements
+
+Custom measurement subclasses can also be defined from the Measurement base class in
+`mouseberry.groups.core`. The following methods must be defined:
+
+- `on_start` : required
+  - Method must define a set of steps to occur in order to start
+  a measurement
+  - Method must include threading to run in background, and must
+  include on-the-fly logging of measurements to the following attributes:
+    - .data (storing actual measurement data)
+    - .t (storing measurement times)
+- `on_stop` : required
+  - Method must define a set of steps to occur in order to stop
+  a measurement.
+  - Method must include a way to stop the measurement thread.
+
+Let's make a simple mock measurement:
+
+```python
+from mouseberry.groups.core import Measurement
+import time
+import random
+import threading
+
+
+class MockMeasurement(Measurement):
+	"""A mock measurement.
+	
+	Parameters
+	---------
+	name : str
+		Name of the measurement
+	rate : float
+		Sampling rate (Hz)
+	"""
+	
+	def __init__(self, name, rate):
+		super().__init__(name=name)
+		self.rate = rate
+		
+	def on_start(self):
+		self.data = []
+		self.t = []
+		
+		self.thread = SimpleNamespace()
+		self.thread.stop_signal = threading.Event()
+		self.thread.measure = threading.Thread(target=self.measure_loop)
+		self.thread.measure.start()
+		
+	def measure_loop(self):
+		while not self.thread.stop_signal.is_set():
+			self.data.append(int(random.random()<0.1))  # random binary data
+			self.t.append(time.time())
+
+			time.sleep(1 / self.rate)
+	
+	def on_stop(self):
+		self.thread.stop_signal.set()
+		self.thread.measure.join()
+```
+
