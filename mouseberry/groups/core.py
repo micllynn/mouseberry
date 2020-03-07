@@ -1,11 +1,10 @@
 from mouseberry.data.core import Data
-from mouseberry.tools.time import pick_time
 from mouseberry.tools.interrupt import InterruptionHandler
 from mouseberry.tools.reporting import Reporter
 
-import math
 import time
 import logging
+import threading
 import numpy as np
 from types import SimpleNamespace
 
@@ -121,9 +120,42 @@ class Event(object):
     def __str__(self):
         return self.name
 
+    def trial_start(self):
+        """
+        Wrapper around .on_init() and .on_assign_tstart() methods
+        in child classes.
+
+        Called by experiment at the time of the trial start.
+        """
+        reporter = self._parent._parent.reporter
+
+        try:
+            self.on_init()
+        except AttributeError:
+            pass
+
+        try:
+            self._t_start = self.on_assign_tstart()
+        except AttributeError:
+            reporter.error((f"Cannot call .on_assign_tstart() method "
+                            f"in Event class. "
+                            f"Please set it in {self.__class__} child class."))
+
+        self._trigger_thread = threading.Thread(
+            target=self.trigger_thread_target)
+
     def trigger(self):
+        """Triggers the event in a background thread.
+
+        Starts the thread targeting .trigger_thread_target(), which itself
+        logs start and stop times and runs .on_trigger().
+        """
+        self._trigger_thread.start()
+
+    def trigger_thread_target(self):
         """
         Wrapper around .on_trigger() method in child class.
+        Called in the background (threaded) by .trigger().
 
         At the scheduled time of the event,
         triggers the event, and logs real start (._logged_t_start)
@@ -149,27 +181,6 @@ class Event(object):
             reporter.error(f'Cannot call trigger() method in Event. ' +
                            f'.on_trigger() method in {self.__class__} ' +
                            f'is not set.')
-
-    def trial_start(self):
-        """
-        Wrapper around .on_init() and .on_assign_tstart() methods
-        in child classes.
-
-        Called by experiment at the time of the trial start.
-        """
-        reporter = self._parent._parent.reporter
-
-        try:
-            self.on_init()
-        except AttributeError:
-            pass
-
-        try:
-            self._t_start = self.on_assign_tstart()
-        except AttributeError:
-            reporter.error((f"Cannot call .on_assign_tstart() method "
-                            f"in Event class. "
-                            f"Please set it in {self.__class__} child class."))
 
     def cleanup(self):
         """
@@ -371,7 +382,13 @@ class TrialType(BaseGroup):
 
             _curr_event.trigger()
 
-        # End time waiting
+        # Join all event threads
+        # ------------
+        for ind, event_name in enumerate(events_by_time):
+            _curr_event = getattr(self.events, event_name)
+            _curr_event._trigger_thread.join()
+
+        # Post-event waiting time
         # ------------
         if self.t_end is not None:
             time.sleep(self.t_end)

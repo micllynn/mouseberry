@@ -3,9 +3,9 @@
 Mouseberry is a hackable, Python-based rodent behavior controller designed
 around the Raspberry Pi and operating at a moderate-to-high level of abstraction.
 
-It provides a full scheduler for stochastic behavioral events, background (threaded)
-acquisition of measurements, background PiCam video streaming to a
-monitor, and automated data storage in the HDF5 format.
+It provides a full scheduler and threading for stochastic behavioral events,
+background (threaded) acquisition of measurements, background PiCam video
+streaming to a monitor, and automated data storage in the HDF5 format.
 
 With mouseberry, Events are first defined based on a set of steps which
 occur when they are triggered. Then, TrialTypes are constructed as a collection
@@ -13,9 +13,9 @@ of events. Finally, the Experiment is built as a collection of TrialTypes
 (each with some characteristic occurrence probability),
 background Measurements, and a background Video stream. The core routines of
 Mouseberry then procedurally construct and run trials based on dynamic scheduling
-of the events that are occurring in those trials, provide full logging and
-console output, and auto-magically store all
-relevant parameters in an .hdf5 file.
+and threading of events that are occurring in those trials. There is full
+logging and console output, and all relevant parameters of each event, even
+user-defined paremeters, are auto-magically stored in an .hdf5 file.
 
 These successive layers of abstraction make it easier to write and edit complex
 behavioral tasks. Since the storage of Measurement and Event attributes
@@ -112,7 +112,6 @@ _What are class instance names used for?_ Events, as well as other base classes,
 require a name. Names help provide an intelligible format for the dataset and groups
 in the hdf5 file.
 
-
 ## Notes on acquiring measurements
 More than one measurement can be acquired at the same time. All measurements are
 fully thread-safe and are acquired in the background while
@@ -125,7 +124,7 @@ custom classes` below.)
 
 ## Notes on video streaming
 By default, videos are streamed to the display attached to the Raspberry Pi.
-However, it is also possible to save videos corresponding to each Trial:
+However, it is also possible to save videos corresponding to each trial.
 
 ```python
 vid = mb.Video(record=True)
@@ -144,8 +143,8 @@ import mouseberry as mb
 import scipy.stats
 
 t_tone_high = mb.TimeDist(t_dist=scipy.stats.norm,
-	t_args={'loc': 4, 'scale': 2}),
-	t_min=2, t_max=10)
+	                      t_args={'loc': 4, 'scale': 2}),
+	                      t_min=2, t_max=10)
 	
 tone_high = mb.Tone(name='tone_high', t_start=t_tone, t_dur=1, freq=10000)
 trial = mb.TrialType(name='trial', p=1, events=[tone_high])
@@ -172,11 +171,40 @@ tone_high = mb.Tone(name='tone_high', t_start=t_tone, t_dur=1, freq=10000)
 trial = mb.TrialType(name='trial', p=1, events=[tone_high])
 
 iti_dist = mb.TimeDist(t_dist=scipy.stats.expon,
-	t_args={'scale': 1/5},  # corresponds to lambda=5
-	t_max=15)
+	                   t_args={'scale': 1/5},  # corresponds to lambda=5
+				       t_max=15)
 	
 exp = mb.Experiment(n_trials=10, iti=iti_dist)
 ```
+
+## Constructing more complex experiments
+Complex experiments consisting of many Events per TrialType, each with stochastic
+onset times, can be easily created. Since each event is by default threaded, events
+can overlap in time with minimal issues:
+
+```python
+import mouseberry as mb
+import scipy.stats as sp_st
+
+events = []
+t_start = mb.TimeDist(t_dist=sp_st.norm,
+                      t_args={'loc': 5, 'scale': 3},
+                      t_min=0, t_max=10)
+
+for ind_event in range(40):
+    event = mb.Tone(name='tone'+str(ind_event),
+                    t_start=t_start,
+                    t_dur=0.1,
+                    freq=ind_event*500)
+    events.append(event)
+
+trial = mb.TrialType('main_trial', p=1, events=events)
+exp = mb.Experiment(n_trials=10, iti=2)
+exp.run(trial)
+```
+
+The script above procedurally generates an experiment where 40 tones from 0 to 20KHz 
+stochastically occur with start times following a normal distribution around 5s.
 
 # Stored HDF5 data format
 By default, mouseberry stores all data in a logical, hierarchical data structure
@@ -249,7 +277,7 @@ they will be automatically processed and stored correctly by the rest of the pac
 
 ## Events
 Event subclasses must inherit from the Event base class in `mouseberry.groups.core`, and
-must have the following methods defined: 
+have the following methods defined, some which are optional and some which are required:
 
 - `on_init`: optional
   - Method can define a set of steps to occur right when the trial
