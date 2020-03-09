@@ -267,7 +267,7 @@ class Data():
                 for ind_event, event_name in enumerate(_curr_event_names):
                     _curr_event = getattr(_curr_trial, event_name)
                     _curr_h5 = f.create_group(
-                        f'trial{ind_trial}/event{ind_event}')
+                        f'trial{ind_trial}/{_curr_event.name}')
 
                     for shared_attr in shared_event_attr_names:
                         shared_attr_val = getattr(_curr_event, shared_attr)

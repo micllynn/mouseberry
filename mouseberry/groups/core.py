@@ -234,8 +234,8 @@ class Measurement(object):
     def start_measurement(self, **kwargs):
         """Initialize measurement.
 
-        - In child class, calls ._start_measurement().
-        - ._measure() must be threaded and must log events to
+        - In child class, calls .on_start().
+        - .on_start() be threaded and must log events to
         child.data and child.t
         """
         parent_exp = self._parent._parent
@@ -253,7 +253,7 @@ class Measurement(object):
     def stop_measurement(self, **kwargs):
         """Stop measurement.
 
-        In child class, calls ._stop_measurement().
+        In child class, calls .on_stop().
         """
         try:
             self.on_stop(**kwargs)

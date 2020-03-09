@@ -291,17 +291,22 @@ class Lickometer(GPIOMeasurement):
         self.thread.measure.start()
 
     def measure_loop(self):
+        _t_meas = time.time()
         while not self.thread.stop_signal.is_set():
+
+            while time.time() < _t_meas + 1/self.sampling_rate:
+                time.sleep(0.0005)
+
             if gpio.input(self.pin):
                 # register lick
                 self.data.append(1)
-                self.t.append(time.time())
+                _t_meas = time.time()
+                self.t.append(_t_meas - self.t_start_trial)
             else:
                 # register no lick
                 self.data.append(0)
-                self.t.append(time.time() - self.t_start_trial)
-
-            time.sleep(1 / self.sampling_rate)
+                _t_meas = time.time()
+                self.t.append(_t_meas - self.t_start_trial)
 
     def on_stop(self):
         self.thread.stop_signal.set()
