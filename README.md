@@ -1,3 +1,34 @@
+Table of Contents
+=================
+
+   * [Introduction](#introduction)
+   * [Installation](#installation)
+   * [Getting started](#getting-started)
+      * [The basics](#the-basics)
+      * [Built-in event types](#built-in-event-types)
+         * [Rewards](#rewards)
+         * [GPIO stimuli](#gpio-stimuli)
+         * [Audio](#audio)
+         * [Looming visual stimulus](#looming-visual-stimulus)
+      * [Built-in measurement types](#built-in-measurement-types)
+         * [Continuous polling from GPIO:](#continuous-polling-from-gpio)
+         * [Notes on acquiring measurements](#notes-on-acquiring-measurements)
+      * [Video streaming](#video-streaming)
+   * [Advanced usage](#advanced-usage)
+      * [Defining stochastic event start times](#defining-stochastic-event-start-times)
+      * [Defining stochastic ITIs](#defining-stochastic-itis)
+      * [Constructing more complex experiments](#constructing-more-complex-experiments)
+   * [Stored data format: HDF5](#stored-data-format-hdf5)
+      * [Experiment attributes](#experiment-attributes)
+      * [Trial attributes](#trial-attributes)
+      * [Measurements](#measurements)
+      * [Events](#events)
+   * [Creating custom classes](#creating-custom-classes)
+      * [Events](#events-1)
+      * [Measurements](#measurements-1)
+
+
+
 # Introduction
 
 Mouseberry is a hackable, Python-based rodent behavior controller designed
@@ -112,17 +143,57 @@ _What are class instance names used for?_ Events, as well as other base classes,
 require a name. Names help provide an intelligible format for the dataset and groups
 in the hdf5 file.
 
-## Notes on acquiring measurements
+## Built-in event types
+Other event types are built-in to mouseberry. Full docstrings are available
+via the `help` command.
+
+### Rewards
+Rewards can be delivered via two built-in Event classes:
+
+- `mb.RewardSolenoid(name, pin, rate, volume, t_start)`:
+  - Delivers liquid rewards through a solenoid connected to a single GPIO pin.
+  - The rate of water flow, and the total volume desired, are both specified.
+  A total opening time is then calculated.
+- `mb.RewardSteppername, pin_motor_off, pin_step, pin_dir, pin_not_at_lim, rate, volume, t_start)`:
+  - Delivers liquid reward through a stepper motor with four associated GPIO pins.
+  - Reward direction is tuneable, and there is a limit input pin.
+
+### GPIO stimuli
+A generic GPIO stimulus can be activated:
+
+- `mb.GenericStim(name, pin, duration, t_start)`:
+  - The GPIO pin is triggered for a set amount of time.
+  
+### Audio
+
+- `mb.Tone(name, t_start, t_dur, freq, db=-10)` :
+  - Plays a pure tone at a given frequency. Uses the `sox` command.
+  
+### Looming visual stimulus
+
+- `mb.Looming(name, t_start, pi_hostname, pi_username, pi_password, pi_port, file_looming)`:
+  - Initializes an SSH connection through paramiko to a second networked Raspberry Pi,
+  and sends a command to run a video at a particular locaiton specified by
+  `file_looming`. 
+  - Can be used to display a looming visual stimulus on a screen attached to the second RPi.
+
+## Built-in measurement types
+
+### Continuous polling from GPIO:
+
+- `mb.Lickometer(name, pin, sampling_rate)` :
+  - Polls from a digital GPIO pin at the given sampling rate.
+
+### Notes on acquiring measurements
 More than one measurement can be acquired at the same time. All measurements are
 fully thread-safe and are acquired in the background while
-events are being sequentially triggered. Sampling rates < 200Hz are advisable.
+events are being sequentially triggered. Sampling rates < 1000Hz are advisable.
 
-Currently, the only measurement class which is defined is the Lickometer class.
-However, the package is designed to be fully hackable, making it easy to write
-new classes which inherit from the base Measurement class (see `Creating
-custom classes` below.)
+## Video streaming
 
-## Notes on video streaming
+Video streaming takes place by initializing the object `mb.Video()` and passing it
+as an argument to the `Experiment.run()` method.
+
 By default, videos are streamed to the display attached to the Raspberry Pi.
 However, it is also possible to save videos corresponding to each trial.
 
@@ -131,6 +202,8 @@ vid = mb.Video(record=True)
 ```
 
 The corresponding videos are saved under the folder `vids`.
+
+# Advanced usage
 
 ## Defining stochastic event start times
 A common scenario is to have events which have stochastic onset times, perhaps
@@ -206,7 +279,7 @@ exp.run(trial)
 The script above procedurally generates an experiment where 40 tones from 0 to 20KHz 
 stochastically occur with start times following a normal distribution around 5s.
 
-# Stored HDF5 data format
+# Stored data format: HDF5
 By default, mouseberry stores all data in a logical, hierarchical data structure
 which is dynamically adjusted based on the contents of the trial-types and events.
 
@@ -266,9 +339,12 @@ More complete event data, including any class instance attributes present that
 trial, are stored in a group directory structure in the root directory:
 
 ```python
->> f['trial0/event1'].attrs.keys()  # Get all attribute keys for trial 0, event 1
->> f['trial0/event1'].attrs['freq']  # Gets the frequency of the tone
->> f['trial0/event1'].attrs['t_start']  # Gets the start time of the event (sec)
+>> f['trial0/tone_low'].attrs.keys()
+	# Prints all attribute keys for the tone_low event in trial 0
+>> f['trial0/tone_low'].attrs['freq']
+	# Prints the frequency attribute for tone_low in trial 0
+>> f['trial0/rew'].attrs['t_start']
+	# Prints the logged start-time attribute for reward event in trial 0
 ```
 
 # Creating custom classes

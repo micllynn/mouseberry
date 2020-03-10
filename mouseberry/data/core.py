@@ -180,10 +180,10 @@ class Data():
 
             ** 2. POSIX directory storing attributes
             # for unique attributes like v_rew, tone_freq
-            trial0/event0/.attrs['t_start']
-            trial0/event0/.attrs['t_end']
-            trial0/event0/.attrs['name']
-            trial0/event0/.attrs['_any_attribute_']
+            trial0/l_rew/.attrs['t_start']
+            trial0/l_rew/.attrs['t_end']
+            trial0/l_rew/.attrs['name']
+            trial0/l_rew/.attrs['any_attribute']
 
             --- Measurement storage ---
             trials/measurements/ex_meas/data[ind_trial] : actual data

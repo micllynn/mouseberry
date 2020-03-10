@@ -55,6 +55,7 @@ class MeasurementMock(Measurement):
         self.thread.stop_signal.set()
         self.thread.measure.join()
 
+
 class ToneMacTester(Event):
     """Event creating a pure tone of a certain length.
     """
