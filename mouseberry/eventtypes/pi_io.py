@@ -183,9 +183,9 @@ class RewardStepper(Event):
 
             for step in range(self.n_steps):
                 gpio.output(self.pin_step, 1)
-                time.sleep(0.001)
+                time.sleep(0.0001)
                 gpio.output(self.pin_step, 0)
-                time.sleep(0.001)
+                time.sleep(0.0001)
 
             gpio.output(self.pin_motor_off, 1)
         else:
@@ -198,9 +198,9 @@ class RewardStepper(Event):
         while gpio.input(self.pin_not_at_lim):
             for step in range(9600):
                 gpio.output(self.pin_step, 1)
-                time.sleep(0.001)
+                time.sleep(0.0001)
                 gpio.output(self.pin_step, 0)
-                time.sleep(0.001)
+                time.sleep(0.0001)
 
         gpio.output(self.pin_motor_off, 1)
 
@@ -211,9 +211,9 @@ class RewardStepper(Event):
         while gpio.input(self.pin_not_at_lim):
             for step in range(9600):
                 gpio.output(self.pin_step, 1)
-                time.sleep(0.001)
+                time.sleep(0.0001)
                 gpio.output(self.pin_step, 0)
-                time.sleep(0.001)
+                time.sleep(0.0001)
 
         gpio.output(self.pin_motor_off, 1)
 
