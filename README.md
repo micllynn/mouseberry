@@ -79,29 +79,37 @@ Additional system dependencies:
 
 ## The basics
 Let's start by importing the package. We will set up a simple experiment consisting
-of two trialtypes, each which has a tone event that occurs.
-
-We are also initializing a measurement object which polls the lickometer,
-and a video object which acquires from a PiCam and routes the feed to a monitor
-attached to the RPi.
+of one trialtype with one tone event that occurs. This is the most basic setup for
+running a behavior experiment.
 
 ```python
 import mouseberry as mb
 
-# Define measurement and video
+tone = mb.Tone(name='tone_low', t_start=1, t_dur=5, freq=2000)
+trial = mb.TrialType(name='trial_low', p=1, events=[tone])
+
+exp = mb.Experiment(n_trials=10, iti=2)
+exp.run(trial)
+```
+
+Note that for `mb.TrialType`, `p` refers to the probability of a trialtype occurring.
+It's useful if an experiment consists of multiple trialtypes.
+
+Next, we will set up a more complex experiment with two trialtypes. 
+We will additionally initialize a measurement object which polls from a lickometer, 
+and a video object which acquires from a PiCam and routes the feed to a monitor
+attached to the RPi. 
+
+```python
 licks = mb.Lickometer(name='lickometer', pin=5, sampling_rate=200)
 vid = mb.Video(framerate=30)
 
-# Define the tone events
 tone_low = mb.Tone(name='tone_low', t_start=1, t_dur=5, freq=2000)
 tone_high = mb.Tone(name='tone_high', t_start=1, t_dur=5, freq=10000)
 
-# Define the trialtypes
-# (p refers to probability of the trial-type being chosen.)
 trial_low = mb.TrialType(name='trial_low', p=0.5, events=[tone_low])
 trial_high = mb.TrialType(name='trial_high', p=0.5, events=[tone_high])
 
-# Setup experiment and run
 exp = mb.Experiment(n_trials=10, iti=2)
 exp.run(trial_low, trial_high, licks, vid)
 ```
@@ -169,13 +177,12 @@ A generic GPIO stimulus can be activated:
 - `mb.Tone(name, t_start, t_dur, freq, db=-10)` :
   - Plays a pure tone at a given frequency. Uses the `sox` command.
   
-### Looming visual stimulus
+### Video
 
 - `mb.Looming(name, t_start, pi_hostname, pi_username, pi_password, pi_port, file_looming)`:
   - Initializes an SSH connection through paramiko to a second networked Raspberry Pi,
-  and sends a command to run a video at a particular locaiton specified by
-  `file_looming`. 
-  - Can be used to display a looming visual stimulus on a screen attached to the second RPi.
+  and sends a command to run a video at a particular location specified by
+  `file_looming`. (Used to display videos for the animal.)
 
 ## Built-in measurement types
 
