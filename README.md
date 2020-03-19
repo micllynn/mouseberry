@@ -223,12 +223,13 @@ import mouseberry as mb
 import scipy.stats
 
 t_tone_high = mb.TimeDist(t_dist=scipy.stats.norm,
-	                      t_args={'loc': 4, 'scale': 2}),
-	                      t_min=2, t_max=10)
+	t_args={'loc': 4, 'scale': 2}),
+	t_min=2, t_max=10)
 	
 tone_high = mb.Tone(name='tone_high', t_start=t_tone, t_dur=1, freq=10000)
 trial = mb.TrialType(name='trial', p=1, events=[tone_high])
 exp = mb.Experiment(n_trials=10, iti=1)
+exp.run(trial)
 ```
 
 Here, we have defined a normal distribution with mean (`loc`) of 4 and standard deviation
@@ -251,10 +252,11 @@ tone_high = mb.Tone(name='tone_high', t_start=t_tone, t_dur=1, freq=10000)
 trial = mb.TrialType(name='trial', p=1, events=[tone_high])
 
 iti_dist = mb.TimeDist(t_dist=scipy.stats.expon,
-	                   t_args={'scale': 1/5},  # corresponds to lambda=5
-				       t_max=15)
+	t_args={'scale': 1/5},  # corresponds to lambda=5
+	t_max=15)
 	
 exp = mb.Experiment(n_trials=10, iti=iti_dist)
+exp.run(trial)
 ```
 
 ## Constructing more complex experiments
@@ -268,14 +270,14 @@ import scipy.stats as sp_st
 
 events = []
 t_start = mb.TimeDist(t_dist=sp_st.norm,
-                      t_args={'loc': 5, 'scale': 3},
-                      t_min=0, t_max=10)
+	t_args={'loc': 5, 'scale': 3},
+	t_min=0, t_max=10)
 
 for ind_event in range(40):
     event = mb.Tone(name='tone'+str(ind_event),
-                    t_start=t_start,
-                    t_dur=0.1,
-                    freq=ind_event*500)
+		t_start=t_start,
+		t_dur=0.1,
+		freq=ind_event*500)
     events.append(event)
 
 trial = mb.TrialType('main_trial', p=1, events=events)
