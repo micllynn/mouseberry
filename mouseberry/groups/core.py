@@ -161,26 +161,36 @@ class Event(object):
         triggers the event, and logs real start (._logged_t_start)
         and real end (._logged_t_end) times as attributes.
 
+        Additionally prints measurement statistics for the event period.
+
         Called by the experiment at the time of the event.
         """
         reporter = self._parent._parent.reporter  # get from Experiment() inst.
         t_trial_start = self._parent._parent._curr_ttype._t_start_trial_abs
 
+        self._logged_t_start = time.time() - t_trial_start
+        self._parent._parent._curr_ttype._prev_event_t_start = self._logged_t_start
+
+        reporter.info((f'{self.name} started at '
+                       f'{self._logged_t_start:.2f}s'))
+
         try:
-            self._logged_t_start = time.time() - t_trial_start
-            reporter.info((f'{self.name} started at '
-                           f'{self._logged_t_start:.2f}s'))
-
             self.on_trigger()
-
-            self._logged_t_end = time.time() - t_trial_start
-            reporter.info((f'{self.name} ended at '
-                           f'{self._logged_t_end:.2f}s'))
-
         except AttributeError:
             reporter.error(f'Cannot call trigger() method in Event. ' +
                            f'.on_trigger() method in {self.__class__} ' +
                            f'is not set.')
+
+        self._logged_t_end = time.time() - t_trial_start
+        self._parent._parent._curr_ttype._prev_event_t_end = self._logged_t_end
+
+        reporter.tabin()
+        self._parent._print_measurement_stats(t_start=self._logged_t_start,
+                                              t_end=self._logged_t_end)
+        reporter.tabout()
+
+        reporter.info((f'{self.name} ended at '
+                       f'{self._logged_t_end:.2f}s'))
 
     def cleanup(self):
         """
@@ -374,12 +384,19 @@ class TrialType(BaseGroup):
 
         # Proceed through events, triggering and waiting as required.
         # --------------
+        self._prev_event_t_end = 0  # Before any events, set placeholder
+
         for ind, event_name in enumerate(events_by_time):
             _curr_event = getattr(self.events, event_name)
 
             while time.time() < t_scheduled[ind]:
                 time.sleep(0.0001)
 
+            # Print interevent period stats for all measurements
+            self._print_measurement_stats(t_start=time.time()
+                                              - self._t_start_trial_abs,
+                                          t_end=self._prev_event_t_end,
+                                          interevent_period=True)
             _curr_event.trigger()
 
         # Join all event threads
@@ -392,6 +409,46 @@ class TrialType(BaseGroup):
         # ------------
         if self.t_end is not None:
             time.sleep(self.t_end)
+            self._print_measurement_stats(t_start=time.time()
+                                              - self._t_start_trial_abs,
+                                          t_end=self._prev_event_t_end,
+                                          interevent_period=True)
+
+    def _print_measurement_stats(self, t_start, t_end, interevent_period=False):
+        """
+        Prints stats of each measurement in a defined time period
+        (typically between beginning and end of an event)
+
+        Parameters
+        ------------
+        t_start : float
+            Start time for which to analyze measurement stats
+        t_end : float
+            End time for which to analyze measurement stats
+        """
+        reporter = self._parent.reporter  # get from Experiment() inst.
+
+        for msmt_key in self.measurements.__dict__:
+            _msmt = self.measurements.__dict__[msmt_key]
+
+            # Find corresponding inds of given times
+            _ind_t_start = np.argmin(np.abs(np.array(_msmt.t) - t_start))
+            _ind_t_end = np.argmin(np.abs(np.array(_msmt.t) - t_end))
+
+            # Extract parts of the data
+            _n_events = np.sum(_msmt.data[_ind_t_start:_ind_t_end])
+            _rate = _n_events / (t_end - t_start)
+
+            # Print
+            if interevent_period is False:
+                reporter.info((f'{_msmt.name}: {_n_events} events; '
+                               f'{_rate:.2f}Hz'))
+            elif interevent_period is True:
+                reporter.info('inter-event period:')
+                reporter.tabin()
+                reporter.info((f'{_msmt.name}: {_n_events} events; '
+                               f'{_rate:.2f}Hz'))
+                reporter.tabout()
 
 
 class Experiment(BaseGroup):
