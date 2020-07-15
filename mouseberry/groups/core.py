@@ -444,11 +444,8 @@ class TrialType(BaseGroup):
                 reporter.info((f'{_msmt.name}: {_n_events} events; '
                                f'{_rate:.2f}Hz'))
             elif interevent_period is True:
-                reporter.info('inter-event period:')
-                reporter.tabin()
                 reporter.info((f'{_msmt.name}: {_n_events} events; '
                                f'{_rate:.2f}Hz'))
-                reporter.tabout()
 
 
 class Experiment(BaseGroup):
