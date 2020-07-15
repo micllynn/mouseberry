@@ -171,7 +171,7 @@ class Event(object):
         self._logged_t_start = time.time() - t_trial_start
         self._parent._parent._curr_ttype._prev_event_t_start = self._logged_t_start
 
-        reporter.info((f'{self.name} started at '
+        reporter.info((f'--> {self.name} started at '
                        f'{self._logged_t_start:.2f}s'))
 
         try:
@@ -187,10 +187,9 @@ class Event(object):
         reporter.tabin()
         self._parent._print_measurement_stats(t_start=self._logged_t_start,
                                               t_end=self._logged_t_end)
-        reporter.tabout()
-
-        reporter.info((f'{self.name} ended at '
+        reporter.info((f'--| {self.name} ended at '
                        f'{self._logged_t_end:.2f}s'))
+        reporter.tabout()
 
     def cleanup(self):
         """
@@ -441,10 +440,10 @@ class TrialType(BaseGroup):
 
             # Print
             if interevent_period is False:
-                reporter.info((f'{_msmt.name}: {_n_events} events; '
+                reporter.info((f'* {_msmt.name}: {_n_events} events; '
                                f'{_rate:.2f}Hz'))
             elif interevent_period is True:
-                reporter.info((f'{_msmt.name}: {_n_events} events; '
+                reporter.info((f'* {_msmt.name}: {_n_events} events; '
                                f'{_rate:.2f}Hz'))
 
 
