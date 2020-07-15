@@ -255,32 +255,42 @@ class GenericStim(GPIOEvent):
 
 
 class Lickometer(GPIOMeasurement):
-    """Create an object which measures licks from a lickometer.
+    """Create an object which measures licks from a lickometer,
+    as well as controlling the lickometer IR-LED
 
     Parameters
     ----------
     name : str
         Name of event.
-    pin : int
-        Pin of the GPIO measurement
+    pin_in : int
+        Pin of the GPIO measurement input
+    pin_led : int
+        Pin of the associated lickometer LED output.
+        (LED is turned on before each measurement period, and turned off
+        at the end of the measurement period.)
     sampling_rate : float
         Sampling rate of the pin (Hz)
     """
 
-    def __init__(self, name, pin, sampling_rate):
-        super().__init__(name=name, pin=pin, sampling_rate=sampling_rate)
+    def __init__(self, name, pin_in, pin_led, sampling_rate):
+        super().__init__(name=name, pin=pin_in, sampling_rate=sampling_rate)
+        self.pin_led = pin_led
+        _GPIOSetupHelper(self.pin_led, gpio.OUT)
 
     def on_start(self):
         """
-        Starts measuring lickrate for a given frequency.
-        Lickrates and associated times are stored in
-        self._licks and self._t_licks.
+        1. Activates IR-LED for lickometer.
+        2. Then starts measuring lickrate for a given frequency.
+        3. Lick events and associated times are stored in
+        self.data and self.t.
         """
         assert hasattr(self, 't_start_trial'), \
             ('.t_start_trial must be set before'
              '.on_start() can be called in the'
              'Lickometer class. This is typically'
              'assigned during .start_measurement().')
+
+        gpio.output(self.pin_led, True)
 
         self.data = []
         self.t = []
@@ -309,5 +319,11 @@ class Lickometer(GPIOMeasurement):
                 self.t.append(_t_meas - self.t_start_trial)
 
     def on_stop(self):
+        """
+        Stops lickometer measurement thread, then turns off
+        IR-LED.
+        """
         self.thread.stop_signal.set()
         self.thread.measure.join()
+
+        gpio.output(self.pin_led, False)

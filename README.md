@@ -78,9 +78,9 @@ Additional system dependencies:
 # Getting started
 
 ## The basics
-Let's start by importing the package. We will set up a simple experiment consisting
-of one trialtype with one tone event that occurs. This is the most basic setup for
-running a behavior experiment.
+Let's start by importing the package. We will set up a simple experiment
+consisting of one trialtype with one tone event that occurs.
+This is the most basic setup for creating and running a behavior experiment.
 
 ```python
 import mouseberry as mb
@@ -96,9 +96,9 @@ Note that for `mb.TrialType`, `p` refers to the probability of a trialtype occur
 It's useful if an experiment consists of multiple trialtypes.
 
 Next, we will set up a more complex experiment with two trialtypes. 
-We will additionally initialize a measurement object which polls from a lickometer, 
-and a video object which acquires from a PiCam and routes the feed to a monitor
-attached to the RPi. 
+We will additionally initialize a measurement object which polls from a
+lickometer, and a video object which acquires from a PiCam and routes the
+feed to a monitor attached to the RPi. 
 
 ```python
 licks = mb.Lickometer(name='lickometer', pin=5, sampling_rate=200)
