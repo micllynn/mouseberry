@@ -10,9 +10,9 @@ GPIO.setmode(GPIO.BCM)
 #Assign GPIO pins:
 #----------------------------
 
-L_enablePIN = 2 #enable pin for left stepper motor
+L_enablePIN = 27 #enable pin for left stepper motor
 L_directionPIN = 17 #direction pin for left stepper motor
-L_stepPIN = 3 #step pin for left stepper motor
+L_stepPIN = 18 #step pin for left stepper motor
 L_emptyPIN = 14 #empty switch pin for left stepper motor
 
 

@@ -11,7 +11,7 @@ tdist_rew = mb.TimeDist(t_dist=scipy.stats.norm,
                       t_min=5)
 
 tone_sm = mb.Tone(name='tone_sm', t_start=4, t_dur=1, freq=3000)
-rew_sm = mb.RewardStepper(name='rew_sm', pin_motor_off=2, pin_step=3,
+rew_sm = mb.RewardStepper(name='rew_sm', pin_motor_off=27, pin_step=18,
                           pin_dir=17, pin_not_at_lim=14, rate=40, volume=4,
                           t_start=7)
 opto_on = mb.GenericStim(name='opto_on', pin=21, duration=2, t_start=5)
@@ -21,7 +21,7 @@ trial_sm.add_end_time(2)
 
 # large trialtype
 tone_lg = mb.Tone(name='tone_lg', t_start=4, t_dur=1, freq=6000)
-rew_lg = mb.RewardStepper(name='rew_lg', pin_motor_off=2, pin_step=3,
+rew_lg = mb.RewardStepper(name='rew_lg', pin_motor_off=27, pin_step=18,
                           pin_dir=17, pin_not_at_lim=14, rate=40, volume=8,
                           t_start=7)
 opto_on = mb.GenericStim(name='opto_on', pin=21, duration=2, t_start=5)
