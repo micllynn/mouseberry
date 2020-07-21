@@ -287,6 +287,8 @@ class Lickometer(GPIOMeasurement):
 
     def __init__(self, name, pin_in, pin_led, sampling_rate):
         super().__init__(name=name, pin=pin_in, sampling_rate=sampling_rate)
+
+        # Setup IR LED out
         self.pin_led = pin_led
         _GPIOSetupHelper(self.pin_led, gpio.OUT)
 
@@ -322,12 +324,12 @@ class Lickometer(GPIOMeasurement):
 
             if gpio.input(self.pin):
                 # register lick
-                self.data.append(1)
+                self.data.append(0)
                 _t_meas = time.time()
                 self.t.append(_t_meas - self.t_start_trial)
             else:
                 # register no lick
-                self.data.append(0)
+                self.data.append(1)
                 _t_meas = time.time()
                 self.t.append(_t_meas - self.t_start_trial)
 
