@@ -1,6 +1,7 @@
 **/.DS_Store
 *.hdf5
 *.wav
+*.py
 **/__pycache__
 **/*.pyc
 **/#*
@@ -9,9 +10,9 @@
 
 log
 data
-run_rpi.py
-_*.py
-classical.py
-mac_test.py
-mac_test_measurement.py
 README.html
+
+!refill_syringe.py
+!water_calibration.py
+!empty_syringe.py
+!setup.py
