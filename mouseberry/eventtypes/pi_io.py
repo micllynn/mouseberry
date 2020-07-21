@@ -198,8 +198,8 @@ class RewardStepper(Event):
         gpio.output(self.pin_motor_off, 0)
         gpio.output(self.pin_dir, 0)
 
-        while gpio.input(self.pin_not_at_lim):
-            for step in range(9600):
+        for step in range(9600):
+            if gpio.input(self.pin_not_at_lim):
                 gpio.output(self.pin_step, 1)
                 time.sleep(0.0001)
                 gpio.output(self.pin_step, 0)
@@ -211,8 +211,8 @@ class RewardStepper(Event):
         gpio.output(self.pin_motor_off, 0)
         gpio.output(self.pin_dir, 1)
 
-        while gpio.input(self.pin_not_at_lim):
-            for step in range(9600):
+        for step in range(9600):
+            if gpio.input(self.pin_not_at_lim):
                 gpio.output(self.pin_step, 1)
                 time.sleep(0.0001)
                 gpio.output(self.pin_step, 0)
@@ -224,8 +224,8 @@ class RewardStepper(Event):
         gpio.output(self.pin_motor_off, 0)
         gpio.output(self.pin_dir, 1)
 
-        while gpio.input(self.pin_not_at_lim):
-            for step in range(n_steps):
+        for step in range(n_steps):
+            if gpio.input(self.pin_not_at_lim):
                 gpio.output(self.pin_step, 1)
                 time.sleep(0.0001)
                 gpio.output(self.pin_step, 0)
