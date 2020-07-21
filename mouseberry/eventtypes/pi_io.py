@@ -217,6 +217,19 @@ class RewardStepper(Event):
 
         gpio.output(self.pin_motor_off, 1)
 
+    def calibrate(self, n_steps=1000):
+        gpio.output(self.pin_motor_off, 0)
+        gpio.output(self.pin_dir, 1)
+
+        while gpio.input(self.pin_not_at_lim):
+            for step in range(n_steps):
+                gpio.output(self.pin_step, 1)
+                time.sleep(0.0001)
+                gpio.output(self.pin_step, 0)
+                time.sleep(0.0001)
+
+        gpio.output(self.pin_motor_off, 1)
+
 
 class GenericStim(GPIOEvent):
     """Create an object which triggers a generic stimulus output
