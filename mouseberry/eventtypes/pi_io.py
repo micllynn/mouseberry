@@ -13,10 +13,13 @@ from types import SimpleNamespace
 __all__ = ['RewardSolenoid', 'RewardStepper', 'GenericStim', 'Lickometer']
 
 
-def _GPIOSetupHelper(pin, io):
+def _GPIOSetupHelper(pin, io, pull_up_down=None):
     gpio.setmode(gpio.BCM)
     gpio.setwarnings(False)
-    gpio.setup(pin, io)
+    if pull_up_down is None:
+        gpio.setup(pin, io)
+    elif pull_up_down is not None:
+        gpio.setup(pin, io, pull_up_down=pull_up_down)
     return
 
 
@@ -56,10 +59,10 @@ class GPIOMeasurement(Measurement):
     sampling_rate : float
         Sampling rate of the pin (Hz)
     """
-    def __init__(self, name, pin, sampling_rate):
+    def __init__(self, name, pin, sampling_rate, pull_up_down=None):
         self.pin = pin
         super().__init__(name=name, sampling_rate=sampling_rate)
-        _GPIOSetupHelper(self.pin, gpio.IN)
+        _GPIOSetupHelper(self.pin, gpio.IN, pull_up_down=pull_up_down)
 
     def __str__(self):
         return f'GPIOMeasurement (input) {self.name} \
@@ -264,8 +267,8 @@ class Lickometer(GPIOMeasurement):
         Name of event.
     pin_in : int
         Pin of the GPIO measurement input
-    pin_led : int
-        Pin of the associated lickometer LED output.
+    pin_led : list or int
+        Pin(s) of the associated lickometer LED output.
         (LED is turned on before each measurement period, and turned off
         at the end of the measurement period.)
     sampling_rate : float
@@ -273,9 +276,14 @@ class Lickometer(GPIOMeasurement):
     """
 
     def __init__(self, name, pin_in, pin_led, sampling_rate):
-        super().__init__(name=name, pin=pin_in, sampling_rate=sampling_rate)
+        super().__init__(name=name, pin=pin_in, sampling_rate=sampling_rate,
+                         pull_up_down=gpio.PUD_DOWN)
         self.pin_led = pin_led
-        _GPIOSetupHelper(self.pin_led, gpio.OUT)
+        if type(self.pin_led) is list:
+            for _pin in self.pin_led:
+                _GPIOSetupHelper(_pin, gpio.OUT)
+        elif type(self.pin_led) is int:
+            _GPIOSetupHelper(self.pin_led, gpio.OUT)
 
     def on_start(self):
         """
@@ -290,7 +298,11 @@ class Lickometer(GPIOMeasurement):
              'Lickometer class. This is typically'
              'assigned during .start_measurement().')
 
-        gpio.output(self.pin_led, True)
+        if type(self.pin_led) is list:
+            for _pin in self.pin_led:
+                gpio.output(self.pin_led, True)
+        elif type(self.pin_led) is int:
+            gpio.output(self.pin_led, True)
 
         self.data = []
         self.t = []
@@ -309,12 +321,12 @@ class Lickometer(GPIOMeasurement):
 
             if gpio.input(self.pin):
                 # register lick
-                self.data.append(1)
+                self.data.append(0)
                 _t_meas = time.time()
                 self.t.append(_t_meas - self.t_start_trial)
             else:
                 # register no lick
-                self.data.append(0)
+                self.data.append(1)
                 _t_meas = time.time()
                 self.t.append(_t_meas - self.t_start_trial)
 
@@ -326,4 +338,8 @@ class Lickometer(GPIOMeasurement):
         self.thread.stop_signal.set()
         self.thread.measure.join()
 
-        gpio.output(self.pin_led, False)
+        if type(self.pin_led) is list:
+            for _pin in self.pin_led:
+                gpio.output(self.pin_led, False)
+        elif type(self.pin_led) is int:
+            gpio.output(self.pin_led, False)
