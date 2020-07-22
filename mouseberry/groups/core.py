@@ -564,6 +564,9 @@ class Experiment(BaseGroup):
             _ttype_instance = getattr(self.ttypes, ttype_name)
             self._tr_chooser.p.append(_ttype_instance.p)
 
+        _temp_p = np.array(self._tr_chooser.p)
+        self._tr_chooser.p = _temp_p / np.sum(_temp_p)
+
     def _start_curr_trial(self, ind_trial):
         """Initializes a trial.
 
