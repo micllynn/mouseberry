@@ -314,7 +314,7 @@ class Lickometer(GPIOMeasurement):
 
         if type(self.pin_led) is list:
             for _pin in self.pin_led:
-                gpio.output(self.pin_led, True)
+                gpio.output(_pin, True)
         elif type(self.pin_led) is int:
             gpio.output(self.pin_led, True)
 
