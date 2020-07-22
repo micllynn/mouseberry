@@ -10,11 +10,6 @@ tone_sm = mb.Tone(name='tone_sm', t_start=4, t_dur=1, freq=6000)
 rew_sm = mb.RewardStepper(name='rew_sm', pin_motor_off=27, pin_step=18,
                           pin_dir=17, pin_not_at_lim=14, rate=40, volume=4,
                           t_start=7)
-opto_on = mb.GenericStim(name='opto_on', pin=21, duration=2, t_start=5)
-trial_sm_opto = mb.TrialType(name='trial_sm_opto', p=0.167,
-                             events=[tone_sm, rew_sm, opto_on])
-trial_sm_opto.add_end_time(2)
-
 trial_sm = mb.TrialType(name='trial_sm', p=0.167,
                         events=[tone_sm, rew_sm])
 trial_sm.add_end_time(2)
@@ -25,11 +20,6 @@ tone_lg = mb.Tone(name='tone_lg', t_start=4, t_dur=1, freq=3000)
 rew_lg = mb.RewardStepper(name='rew_lg', pin_motor_off=27, pin_step=18,
                           pin_dir=17, pin_not_at_lim=14, rate=40, volume=8,
                           t_start=7)
-trial_lg_opto = mb.TrialType(name='trial_lg_opto', p=0.167,
-                             events=[tone_lg, rew_lg, opto_on])
-trial_lg_opto.add_end_time(2)
-
-
 trial_lg = mb.TrialType(name='trial_lg', p=0.167,
                         events=[tone_lg, rew_lg])
 trial_lg.add_end_time(2)
@@ -40,11 +30,6 @@ tone_none = mb.Tone(name='tone_none', t_start=4, t_dur=1, freq=12000)
 rew_none = mb.RewardStepper(name='rew_none', pin_motor_off=27, pin_step=18,
                             pin_dir=17, pin_not_at_lim=14, rate=40, volume=0,
                             t_start=7)
-trial_none_opto = mb.TrialType(name='trial_none_opto',
-                               p=0.167,
-                               events=[tone_none, rew_none, opto_on])
-trial_none_opto.add_end_time(2)
-
 trial_none = mb.TrialType(name='trial_none_opto',
                           p=0.167,
                           events=[tone_none, rew_none])
@@ -57,7 +42,6 @@ tdist_iti = mb.TimeDist(t_dist=scipy.stats.norm,
                         t_min=0.1)
 meas = mb.Lickometer(name='licks', pin_in=22, pin_led=[16, 23],
                      sampling_rate=200)
-exp = mb.Experiment(n_trials=80, iti=tdist_iti)
+exp = mb.Experiment(n_trials=40, iti=tdist_iti)
 vid = mb.Video()
-exp.run(trial_sm, trial_sm_opto, trial_lg, trial_lg_opto,
-        trial_none, trial_none_opto, meas, vid)
+exp.run(trial_sm, trial_lg, trial_none, meas, vid)
