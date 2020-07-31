@@ -33,12 +33,14 @@ class Tone(Event):
     db : float (default -10)
         Decibels of the tone (dB)
     """
-    def __init__(self, name, t_start, t_dur, freq, db=-10):
+    def __init__(self, name, t_start, t_dur, freq, db=-10,
+                 hw_sound_dev=1):
         super().__init__(name=name)
         self.t_start = t_start
         self.t_dur = t_dur
         self.freq = freq
         self.db = db
+        self.hw_sound_dev
 
         _prepare_temp_folder()
         self.filename = 'temp/' + f'{self.name}.wav'
@@ -56,7 +58,8 @@ class Tone(Event):
 
     def on_trigger(self):
         # send the wav file to the sound card
-        os.system(f'play -V0 -q {self.filename}')
+        os.system(f'AUDIODRIVER=alsa AUDIODEV=hw:{self.hw_sound_dev},0 '
+                  + f'play -V0 -q {self.filename}')
 
     def on_cleanup(self):
         if os.path.isdir('temp'):
