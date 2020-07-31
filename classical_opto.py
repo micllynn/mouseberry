@@ -55,7 +55,7 @@ trial_none.add_end_time(2)
 tdist_iti = mb.TimeDist(t_dist=scipy.stats.norm,
                         t_args={'scale': 2},
                         t_min=0.1)
-meas = mb.Lickometer(name='licks', pin_in=22, pin_led=[16, 23],
+meas = mb.Lickometer(name='licks', pin_in=10, pin_led=[11, 9],
                      sampling_rate=200)
 exp = mb.Experiment(n_trials=80, iti=tdist_iti)
 vid = mb.Video()
