@@ -40,7 +40,7 @@ class Tone(Event):
         self.t_dur = t_dur
         self.freq = freq
         self.db = db
-        self.hw_sound_dev
+        self.hw_sound_dev = hw_sound_dev
 
         _prepare_temp_folder()
         self.filename = 'temp/' + f'{self.name}.wav'
