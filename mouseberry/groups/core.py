@@ -169,9 +169,10 @@ class Event(object):
         t_trial_start = self._parent._parent._curr_ttype._t_start_trial_abs
 
         self._logged_t_start = time.time() - t_trial_start
-        self._parent._parent._curr_ttype._prev_event_t_start = self._logged_t_start
+        self._parent._parent._curr_ttype._prev_event_t_start = \
+            self._logged_t_start
 
-        reporter.info((f'--> {self.name} started at '
+        reporter.info((f'-->{self.name} started at '
                        f'{self._logged_t_start:.2f}s'))
 
         try:
@@ -187,7 +188,7 @@ class Event(object):
         reporter.tabin()
         self._parent._print_measurement_stats(t_start=self._logged_t_start,
                                               t_end=self._logged_t_end)
-        reporter.info((f'--| {self.name} ended at '
+        reporter.info((f'{self.name} ended at '
                        f'{self._logged_t_end:.2f}s'))
         reporter.tabout()
 
@@ -392,9 +393,10 @@ class TrialType(BaseGroup):
                 time.sleep(0.0001)
 
             # Print interevent period stats for all measurements
-            self._print_measurement_stats(t_start=time.time()
-                                              - self._t_start_trial_abs,
-                                          t_end=self._prev_event_t_end,
+            _t_end_rel = time.time() - self._t_start_trial_abs
+            _t_start_rel = self._prev_event_t_end
+            self._print_measurement_stats(t_start=_t_start_rel,
+                                          t_end=_t_end_rel,
                                           interevent_period=True)
             _curr_event.trigger()
 
@@ -409,11 +411,12 @@ class TrialType(BaseGroup):
         if self.t_end is not None:
             time.sleep(self.t_end)
             self._print_measurement_stats(t_start=time.time()
-                                              - self._t_start_trial_abs,
+                                          - self._t_start_trial_abs,
                                           t_end=self._prev_event_t_end,
                                           interevent_period=True)
 
-    def _print_measurement_stats(self, t_start, t_end, interevent_period=False):
+    def _print_measurement_stats(self, t_start, t_end,
+                                 interevent_period=False):
         """
         Prints stats of each measurement in a defined time period
         (typically between beginning and end of an event)
@@ -435,16 +438,24 @@ class TrialType(BaseGroup):
             _ind_t_end = np.argmin(np.abs(np.array(_msmt.t) - t_end))
 
             # Extract parts of the data
-            _n_events = np.sum(_msmt.data[_ind_t_start:_ind_t_end])
-            _rate = _n_events / (t_end - t_start)
+            _data_section = _msmt.data[_ind_t_start:_ind_t_end]
 
-            # Print
-            if interevent_period is False:
-                reporter.info((f'* {_msmt.name}: {_n_events} events; '
-                               f'{_rate:.2f}Hz'))
-            elif interevent_period is True:
-                reporter.info((f'* {_msmt.name}: {_n_events} events; '
-                               f'{_rate:.2f}Hz'))
+            if len(_data_section) > 0:
+                _data_sect_diff = np.diff(_data_section)
+                _n_events = np.sum(
+                    _data_sect_diff[_data_sect_diff > 0.5])
+                _rate = _n_events / (t_end - t_start)
+
+                # Print
+                if interevent_period is False:
+                    reporter.info((f'[msmt] {_msmt.name}: '
+                                   f'{_n_events} events; '
+                                   f'{_rate:.2f}Hz'))
+                elif interevent_period is True:
+                    reporter.info((f'\\interevent\\ '
+                                   f'[msmt] {_msmt.name}: '
+                                   f'{_n_events} events; '
+                                   f'{_rate:.2f}Hz'))
 
 
 class Experiment(BaseGroup):

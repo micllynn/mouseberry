@@ -335,12 +335,12 @@ class Lickometer(GPIOMeasurement):
 
             if gpio.input(self.pin):
                 # register lick
-                self.data.append(0)
+                self.data.append(1)
                 _t_meas = time.time()
                 self.t.append(_t_meas - self.t_start_trial)
             else:
                 # register no lick
-                self.data.append(1)
+                self.data.append(0)
                 _t_meas = time.time()
                 self.t.append(_t_meas - self.t_start_trial)
 

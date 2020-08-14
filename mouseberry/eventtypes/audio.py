@@ -58,8 +58,11 @@ class Tone(Event):
 
     def on_trigger(self):
         # send the wav file to the sound card
-        os.system(f'AUDIODRIVER=alsa AUDIODEV=hw:{self.hw_sound_dev},0 '
-                  + f'play -V0 -q {self.filename}')
+        if os.uname()[4].startswith('arm'):
+            os.system(f'AUDIODRIVER=alsa AUDIODEV=hw:{self.hw_sound_dev},0 '
+                      + f'play -V0 -q {self.filename}')
+        else:
+            os.system(f'play -V0 -q {self.filename}')
 
     def on_cleanup(self):
         if os.path.isdir('temp'):
